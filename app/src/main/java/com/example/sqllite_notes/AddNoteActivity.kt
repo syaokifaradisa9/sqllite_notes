@@ -10,8 +10,11 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
+import android.view.HapticFeedbackConstants
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AlphaAnimation
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -207,6 +210,9 @@ class AddNoteActivity : AppCompatActivity() {
         // Inisialisasi dengan hanya satu EditText pertama
         val firstEditText = binding.edtContent1
         noteContentItems.add(NoteContentItem.Text(firstEditText))
+
+        // Tambahkan listener backspace pada EditText pertama
+        addBackspaceListenerToEditText(firstEditText, 0)
     }
 
     private fun checkPermissionAndOpenPicker(request: PermissionRequest) {
@@ -241,8 +247,76 @@ class AddNoteActivity : AppCompatActivity() {
         pickAudioLauncher.launch(intent)
     }
 
+    /**
+     * Menambahkan key listener pada EditText untuk mendeteksi penekanan backspace
+     */
+    private fun addBackspaceListenerToEditText(editText: EditText, position: Int) {
+        editText.setOnKeyListener { view, keyCode, event ->
+            // Deteksi penekanan backspace saat EditText kosong
+            if (keyCode == KeyEvent.KEYCODE_DEL
+                && event.action == KeyEvent.ACTION_DOWN
+                && editText.text.isEmpty()) {
+
+                // Cari item sebelum EditText ini
+                val currentIndex = noteContentItems.indexOfFirst {
+                    (it is NoteContentItem.Text && it.editText == editText)
+                }
+
+                // Pastikan ini bukan EditText pertama dan item sebelumnya adalah gambar
+                if (currentIndex > 0 && noteContentItems[currentIndex - 1] is NoteContentItem.Image) {
+                    // Hapus gambar dan berikan referensi ke view untuk haptic feedback
+                    deleteImageAt(currentIndex - 1, view)
+                    return@setOnKeyListener true // Konsumsi event
+                }
+            }
+            false // Biarkan event diproses normal jika tidak menangani
+        }
+    }
+
+    /**
+     * Menghapus gambar pada indeks tertentu
+     * @param imageIndex indeks gambar dalam noteContentItems
+     * @param sourceView view yang digunakan untuk memberikan umpan balik haptic
+     */
+    private fun deleteImageAt(imageIndex: Int, sourceView: View) {
+        if (imageIndex >= 0 && imageIndex < noteContentItems.size) {
+            val imageItem = noteContentItems[imageIndex] as? NoteContentItem.Image ?: return
+
+            // Hapus ImageView dari container
+            binding.contentContainer.removeView(imageItem.imageView)
+
+            // Hapus dari list konten
+            noteContentItems.removeAt(imageIndex)
+
+            // Fokus ke EditText sebelum atau sesudah gambar
+            if (imageIndex > 0 && noteContentItems[imageIndex - 1] is NoteContentItem.Text) {
+                // Fokus ke EditText sebelum gambar
+                (noteContentItems[imageIndex - 1] as NoteContentItem.Text).editText.requestFocus()
+            } else if (imageIndex < noteContentItems.size && noteContentItems[imageIndex] is NoteContentItem.Text) {
+                // Fokus ke EditText setelah gambar
+                (noteContentItems[imageIndex] as NoteContentItem.Text).editText.requestFocus()
+            }
+
+            // Animasikan penghapusan untuk pengalaman pengguna yang lebih baik
+            val animation = AlphaAnimation(1f, 0f).apply {
+                duration = 300
+                fillAfter = true
+            }
+
+            // Untuk menyegarkan layout setelah menghapus
+            binding.contentContainer.requestLayout()
+
+            // Beri umpan balik haptic menggunakan view yang diberikan
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                sourceView.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+            } else {
+                sourceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            }
+        }
+    }
+
     private fun addImageToNote(imageUri: Uri) {
-        // Buat ImageView untuk menampilkan gambar
+        // Buat ImageView untuk menampilkan gambar (kode yang sudah ada)
         val imageView = ImageView(this).apply {
             id = View.generateViewId()
             layoutParams = LinearLayout.LayoutParams(
@@ -263,6 +337,7 @@ class AddNoteActivity : AppCompatActivity() {
         noteContentItems.add(NoteContentItem.Image(imageView, imageUri))
 
         // Buat EditText baru untuk teks setelah gambar
+        // (Pastikan kode di bawah ini sesuai dengan implementasi yang sudah ada)
         val newEditText = EditText(this).apply {
             id = View.generateViewId()
             layoutParams = LinearLayout.LayoutParams(
@@ -282,6 +357,9 @@ class AddNoteActivity : AppCompatActivity() {
 
         // Tambahkan item teks ke daftar konten
         noteContentItems.add(NoteContentItem.Text(newEditText))
+
+        // Tambahkan listener backspace pada EditText baru
+        addBackspaceListenerToEditText(newEditText, noteContentItems.size - 1)
 
         // Fokus ke field teks baru
         newEditText.requestFocus()
