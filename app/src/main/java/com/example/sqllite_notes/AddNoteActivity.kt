@@ -36,94 +36,11 @@ class AddNoteActivity : AppCompatActivity() {
 
     private val TAG = "AddNoteActivity"
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        binding = ActivityAddNoteBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        dbHelper = NoteDbHelper(this)
-
-        setupToolbar()
-        setupPermissionManager()
-        setupListeners()
-
-        noteId = intent.getLongExtra(MainActivity.EXTRA_NOTE_ID, 0)
-        Log.d(TAG, "Opening note with ID: $noteId")
-
-        binding.contentContainer.apply {
-            this.showDividers = LinearLayout.SHOW_DIVIDER_NONE
-        }
-
-        if (noteId > 0) {
-            loadNote(noteId)
-        } else {
-            initializeEmptyContent()
-        }
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        if (noteId > 0) {
-            menuInflater.inflate(R.menu.menu_delete_note, menu)
-        }
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_delete -> {
-                confirmDeleteNote()
-                true
-            }
-            android.R.id.home -> {
-                onBackPressed()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private fun confirmDeleteNote() {
-        AlertDialog.Builder(this)
-            .setTitle("Hapus Catatan")
-            .setMessage("Apakah Anda yakin ingin menghapus catatan ini?")
-            .setPositiveButton("Hapus") { _, _ ->
-                deleteNote()
-            }
-            .setNegativeButton("Batal", null)
-            .show()
-    }
-
-    private fun deleteNote() {
-        if (noteId > 0) {
-            val result = dbHelper.deleteNote(noteId)
-            if (result > 0) {
-                Toast.makeText(this, "Catatan berhasil dihapus", Toast.LENGTH_SHORT).show()
-                finish()
-            } else {
-                Toast.makeText(this, "Gagal menghapus catatan", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private val pickImageLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                addImageToNote(uri)
-            }
-        }
-    }
-
-    private val pickAudioLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                addAudioToNote(uri)
-            }
-        }
+    // Setup
+    private fun initializeEmptyContent() {
+        val firstEditText = createEditText("")
+        binding.contentContainer.addView(firstEditText)
+        noteContentItems.add(NoteContentItem.Text(firstEditText))
     }
 
     private fun setupPermissionManager() {
@@ -165,6 +82,56 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
+    // Initialization
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        binding = ActivityAddNoteBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        dbHelper = NoteDbHelper(this)
+
+        setupToolbar()
+        setupPermissionManager()
+        setupListeners()
+
+        noteId = intent.getLongExtra(MainActivity.EXTRA_NOTE_ID, 0)
+        Log.d(TAG, "Opening note with ID: $noteId")
+
+        binding.contentContainer.apply {
+            this.showDividers = LinearLayout.SHOW_DIVIDER_NONE
+        }
+
+        if (noteId > 0) {
+            loadNote(noteId)
+        } else {
+            initializeEmptyContent()
+        }
+    }
+
+    // Menu
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        if (noteId > 0) {
+            menuInflater.inflate(R.menu.menu_delete_note, menu)
+        }
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_delete -> {
+                confirmDeleteNote()
+                true
+            }
+            android.R.id.home -> {
+                onBackPressed()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    // Find Note By Id When Page is loaded
     private fun loadNote(noteId: Long) {
         binding.contentContainer.removeAllViews()
         noteContentItems.clear()
@@ -239,147 +206,7 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    private fun createEditText(initialText: String): EditText {
-        return EditText(this).apply {
-            id = View.generateViewId()
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                // Add this to reduce bottom spacing
-                setMargins(24, 0, 24, 0) // Zero bottom margin
-            }
-            hint = "Tulis disini..."
-            setBackgroundResource(android.R.color.transparent)
-
-            setPadding(0, 8, 0, 0) // Minimal top padding, zero bottom padding
-            minHeight = 100 // Reduce minimum height if needed
-            gravity = android.view.Gravity.TOP or android.view.Gravity.START
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            setText(initialText)
-
-            addBackspaceListenerToEditText(this)
-        }
-    }
-
-    private fun addImageLoadErrorMessage() {
-        val errorText = EditText(this).apply {
-            id = View.generateViewId()
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setText("[Gagal memuat gambar]")
-            isEnabled = false
-            setTextColor(resources.getColor(android.R.color.holo_red_light, theme))
-            setPadding(24, 0, 24, 0)
-        }
-
-        binding.contentContainer.addView(errorText)
-        noteContentItems.add(NoteContentItem.Text(errorText))
-    }
-
-    private fun initializeEmptyContent() {
-        val firstEditText = createEditText("")
-        binding.contentContainer.addView(firstEditText)
-        noteContentItems.add(NoteContentItem.Text(firstEditText))
-    }
-
-    private fun openImagePicker() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        pickImageLauncher.launch(intent)
-    }
-
-    private fun openAudioPicker() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
-        pickAudioLauncher.launch(intent)
-    }
-
-    private fun addBackspaceListenerToEditText(editText: EditText) {
-        editText.setOnKeyListener { view, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_DEL
-                && event.action == KeyEvent.ACTION_DOWN
-                && editText.text.isEmpty()) {
-
-                val currentIndex = noteContentItems.indexOfFirst {
-                    (it is NoteContentItem.Text && it.editText == editText)
-                }
-
-                if (currentIndex > 0 && noteContentItems[currentIndex - 1] is NoteContentItem.Image) {
-                    deleteImageAndEmptyTextField(currentIndex - 1, currentIndex, view)
-                    return@setOnKeyListener true
-                }
-            }
-            false
-        }
-    }
-
-    private fun deleteImageAndEmptyTextField(imageIndex: Int, textFieldIndex: Int, sourceView: View) {
-        if (imageIndex >= 0 && imageIndex < noteContentItems.size &&
-            textFieldIndex >= 0 && textFieldIndex < noteContentItems.size) {
-
-            val imageItem = noteContentItems[imageIndex] as? NoteContentItem.Image ?: return
-            val textItem = noteContentItems[textFieldIndex] as? NoteContentItem.Text ?: return
-
-            binding.contentContainer.removeView(imageItem.imageView)
-            binding.contentContainer.removeView(textItem.editText)
-
-            noteContentItems.removeAt(textFieldIndex)
-            noteContentItems.removeAt(imageIndex)
-
-            if (imageIndex > 0 && noteContentItems[imageIndex - 1] is NoteContentItem.Text) {
-                val previousTextField = (noteContentItems[imageIndex - 1] as NoteContentItem.Text).editText
-                previousTextField.requestFocus()
-                previousTextField.setSelection(previousTextField.text.length)
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                sourceView.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-            } else {
-                sourceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            }
-
-            binding.contentContainer.requestLayout()
-        }
-    }
-
-    private fun addImageToNote(imageUri: Uri) {
-        // Create an ImageView for the new image
-        val imageView = ImageView(this).apply {
-            id = View.generateViewId()
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                600
-            ).apply {
-                // Removed top margin to reduce spacing between text and image
-                setMargins(16, 0, 16, 0)
-            }
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            setImageURI(imageUri)
-            contentDescription = "Note Image"
-        }
-
-        binding.contentContainer.addView(imageView)
-
-        // Add the image to our data model
-        noteContentItems.add(NoteContentItem.Image(imageView, imageUri))
-
-        // Create a new text field after the image
-        val newEditText = createEditText("")
-        binding.contentContainer.addView(newEditText)
-        noteContentItems.add(NoteContentItem.Text(newEditText))
-
-        // Focus on the new text field
-        newEditText.requestFocus()
-        binding.scrollView.post {
-            binding.scrollView.smoothScrollTo(0, newEditText.bottom)
-        }
-    }
-
-    private fun addAudioToNote(audioUri: Uri) {
-        Toast.makeText(this, "Audio akan diimplementasikan nanti", Toast.LENGTH_SHORT).show()
-    }
-
+    // Save Note Action
     private fun saveNote() {
         val title = binding.edtJudul.text.toString().trim()
 
@@ -487,6 +314,181 @@ class AddNoteActivity : AppCompatActivity() {
             finish()
         } else {
             Toast.makeText(this, "Gagal menyimpan catatan", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Delete Note Action
+    private fun confirmDeleteNote() {
+        AlertDialog.Builder(this)
+            .setTitle("Hapus Catatan")
+            .setMessage("Apakah Anda yakin ingin menghapus catatan ini?")
+            .setPositiveButton("Hapus") { _, _ ->
+                deleteNote()
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun deleteNote() {
+        if (noteId > 0) {
+            val result = dbHelper.deleteNote(noteId)
+            if (result > 0) {
+                Toast.makeText(this, "Catatan berhasil dihapus", Toast.LENGTH_SHORT).show()
+                finish()
+            } else {
+                Toast.makeText(this, "Gagal menghapus catatan", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Image Selector Handler
+    private val pickImageLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                addImageToNote(uri)
+            }
+        }
+    }
+
+    private fun addImageToNote(imageUri: Uri) {
+        val imageView = ImageView(this).apply {
+            id = View.generateViewId()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                600
+            ).apply {
+                setMargins(16, 0, 16, 0)
+            }
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setImageURI(imageUri)
+            contentDescription = "Note Image"
+        }
+
+        binding.contentContainer.addView(imageView)
+
+        noteContentItems.add(NoteContentItem.Image(imageView, imageUri))
+
+        val newEditText = createEditText("")
+        binding.contentContainer.addView(newEditText)
+        noteContentItems.add(NoteContentItem.Text(newEditText))
+
+        newEditText.requestFocus()
+        binding.scrollView.post {
+            binding.scrollView.smoothScrollTo(0, newEditText.bottom)
+        }
+    }
+
+    private fun openImagePicker() {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+        pickImageLauncher.launch(intent)
+    }
+
+    private fun addImageLoadErrorMessage() {
+        val errorText = EditText(this).apply {
+            id = View.generateViewId()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setText("[Gagal memuat gambar]")
+            isEnabled = false
+            setTextColor(resources.getColor(android.R.color.holo_red_light, theme))
+            setPadding(24, 0, 24, 0)
+        }
+
+        binding.contentContainer.addView(errorText)
+        noteContentItems.add(NoteContentItem.Text(errorText))
+    }
+
+    private fun deleteImageAndEmptyTextField(imageIndex: Int, textFieldIndex: Int, sourceView: View) {
+        if (imageIndex >= 0 && imageIndex < noteContentItems.size &&
+            textFieldIndex >= 0 && textFieldIndex < noteContentItems.size) {
+
+            val imageItem = noteContentItems[imageIndex] as? NoteContentItem.Image ?: return
+            val textItem = noteContentItems[textFieldIndex] as? NoteContentItem.Text ?: return
+
+            binding.contentContainer.removeView(imageItem.imageView)
+            binding.contentContainer.removeView(textItem.editText)
+
+            noteContentItems.removeAt(textFieldIndex)
+            noteContentItems.removeAt(imageIndex)
+
+            if (imageIndex > 0 && noteContentItems[imageIndex - 1] is NoteContentItem.Text) {
+                val previousTextField = (noteContentItems[imageIndex - 1] as NoteContentItem.Text).editText
+                previousTextField.requestFocus()
+                previousTextField.setSelection(previousTextField.text.length)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                sourceView.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+            } else {
+                sourceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            }
+
+            binding.contentContainer.requestLayout()
+        }
+    }
+
+    // Audio
+    private val pickAudioLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                addAudioToNote(uri)
+            }
+        }
+    }
+
+    private fun openAudioPicker() {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+        pickAudioLauncher.launch(intent)
+    }
+
+    private fun addAudioToNote(audioUri: Uri) {
+        Toast.makeText(this, "Audio akan diimplementasikan nanti", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun createEditText(initialText: String): EditText {
+        return EditText(this).apply {
+            id = View.generateViewId()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(24, 0, 24, 0)
+            }
+            hint = "Tulis disini..."
+            setBackgroundResource(android.R.color.transparent)
+
+            setPadding(0, 8, 0, 0)
+            minHeight = 100
+            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setText(initialText)
+
+            addBackspaceListenerToEditText(this)
+        }
+    }
+
+    private fun addBackspaceListenerToEditText(editText: EditText) {
+        editText.setOnKeyListener { view, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DEL
+                && event.action == KeyEvent.ACTION_DOWN
+                && editText.text.isEmpty()) {
+
+                val currentIndex = noteContentItems.indexOfFirst {
+                    (it is NoteContentItem.Text && it.editText == editText)
+                }
+
+                if (currentIndex > 0 && noteContentItems[currentIndex - 1] is NoteContentItem.Image) {
+                    deleteImageAndEmptyTextField(currentIndex - 1, currentIndex, view)
+                    return@setOnKeyListener true
+                }
+            }
+            false
         }
     }
 }
