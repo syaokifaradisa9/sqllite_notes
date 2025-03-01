@@ -6,7 +6,12 @@ import android.widget.ImageView
 
 sealed class NoteContentItem {
     data class Text(val editText: EditText) : NoteContentItem()
-    data class Image(val imageView: ImageView, val uri: Uri) : NoteContentItem()
+
+    data class Image(
+        val imageView: ImageView,
+        val uri: Uri,
+        var base64String: String = ""
+    ) : NoteContentItem()
 }
 
 sealed class NotePart {
