@@ -14,13 +14,15 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 
 /**
- * Utility class for image operations
- * Handles conversion between image formats for database storage
+ * Utility class for media operations
+ * Handles conversion between media formats for database storage
  */
 object ImageUtils {
-    private const val TAG = "ImageUtils"
+    private const val TAG = "MediaUtils"
     private const val IMAGE_PREFIX = "IMG:"
     private const val TEXT_PREFIX = "TXT:"
+    private const val AUDIO_PREFIX = "AUDIO:"
+    private const val AUDIO_TITLE_SEPARATOR = "::TITLE::"
     private const val MAX_IMAGE_DIMENSION = 1024
     private const val JPEG_QUALITY = 80
 
@@ -210,12 +212,21 @@ object ImageUtils {
     }
 
     /**
+     * Check if a string is an encoded audio
+     * @param content String to check
+     * @return True if the string is an encoded audio, false otherwise
+     */
+    fun isAudio(content: String): Boolean {
+        return content.startsWith(AUDIO_PREFIX)
+    }
+
+    /**
      * Check if a string is text
      * @param content String to check
      * @return True if the string is text, false otherwise
      */
     fun isText(content: String): Boolean {
-        return content.startsWith(TEXT_PREFIX) || (!isImage(content))
+        return content.startsWith(TEXT_PREFIX) || (!isImage(content) && !isAudio(content))
     }
 
     /**
@@ -238,6 +249,36 @@ object ImageUtils {
      */
     fun unwrapText(content: String): String {
         return content.removePrefix(TEXT_PREFIX)
+    }
+
+    /**
+     * Wrap audio content with a prefix and title for consistent handling
+     * @param path Audio file path
+     * @param title Audio title
+     * @return Wrapped audio content
+     */
+    fun wrapAudio(path: String, title: String): String {
+        return "$AUDIO_PREFIX$path$AUDIO_TITLE_SEPARATOR$title"
+    }
+
+    /**
+     * Unwrap audio content and extract path and title
+     * @param content Wrapped audio content
+     * @return Pair of audio path and title
+     */
+    fun unwrapAudio(content: String): Pair<String, String> {
+        if (!isAudio(content)) {
+            return Pair("", "Audio Recording")
+        }
+
+        val audioContent = content.removePrefix(AUDIO_PREFIX)
+        val parts = audioContent.split(AUDIO_TITLE_SEPARATOR, limit = 2)
+
+        return if (parts.size > 1) {
+            Pair(parts[0], parts[1])
+        } else {
+            Pair(parts[0], "Audio Recording")
+        }
     }
 
     /**
@@ -276,6 +317,16 @@ object ImageUtils {
                     stringBuilder.append(imagePath)
                     Log.d(TAG, "Serialized image part: ${imagePath.take(30)}...")
                 }
+                is NotePart.AudioPart -> {
+                    // Make sure audio content is properly formatted
+                    val audioContent = if (part.audioPath.startsWith(AUDIO_PREFIX)) {
+                        part.audioPath
+                    } else {
+                        wrapAudio(part.audioPath, part.title)
+                    }
+                    stringBuilder.append(audioContent)
+                    Log.d(TAG, "Serialized audio part: ${audioContent.take(30)}...")
+                }
             }
 
             // Add delimiter except for the last item
@@ -305,17 +356,26 @@ object ImageUtils {
             Log.d(TAG, "Deserializing ${segments.size} content segments")
 
             for (segment in segments) {
-                if (segment.startsWith(IMAGE_PREFIX)) {
-                    Log.d(TAG, "Found image segment: ${segment.take(30)}...")
-                    parts.add(NotePart.ImagePart(segment))
-                } else if (segment.startsWith(TEXT_PREFIX)) {
-                    val text = unwrapText(segment)
-                    Log.d(TAG, "Found text segment: ${text.take(20)}...")
-                    parts.add(NotePart.TextPart(text))
-                } else {
-                    // Assume it's text if it doesn't have a prefix
-                    Log.d(TAG, "Found untagged text: ${segment.take(20)}...")
-                    parts.add(NotePart.TextPart(segment))
+                when {
+                    segment.startsWith(IMAGE_PREFIX) -> {
+                        Log.d(TAG, "Found image segment: ${segment.take(30)}...")
+                        parts.add(NotePart.ImagePart(segment))
+                    }
+                    segment.startsWith(TEXT_PREFIX) -> {
+                        val text = unwrapText(segment)
+                        Log.d(TAG, "Found text segment: ${text.take(20)}...")
+                        parts.add(NotePart.TextPart(text))
+                    }
+                    segment.startsWith(AUDIO_PREFIX) -> {
+                        val (audioPath, title) = unwrapAudio(segment)
+                        Log.d(TAG, "Found audio segment with title: $title")
+                        parts.add(NotePart.AudioPart(segment, title))
+                    }
+                    else -> {
+                        // Assume it's text if it doesn't have a prefix
+                        Log.d(TAG, "Found untagged text: ${segment.take(20)}...")
+                        parts.add(NotePart.TextPart(segment))
+                    }
                 }
             }
         } catch (e: Exception) {

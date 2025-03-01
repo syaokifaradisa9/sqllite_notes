@@ -2,6 +2,7 @@ package com.example.sqllite_notes
 
 import android.app.Activity
 import android.content.Intent
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -25,7 +26,11 @@ import com.example.sqllite_notes.db.NoteDbHelper
 import com.example.sqllite_notes.models.Note
 import com.example.sqllite_notes.models.NoteContentItem
 import com.example.sqllite_notes.models.NotePart
+import com.example.sqllite_notes.utils.AudioPlayerView
 import com.example.sqllite_notes.utils.ImageUtils
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 class AddNoteActivity : AppCompatActivity() {
     private lateinit var binding: ActivityAddNoteBinding
@@ -195,6 +200,41 @@ class AddNoteActivity : AppCompatActivity() {
                             addImageLoadErrorMessage()
                         }
                     }
+                    is NotePart.AudioPart -> {
+                        val audioPath = part.audioPath
+                        Log.d(TAG, "Loading audio: ${audioPath.take(50)}...")
+
+                        try {
+                            val audioPlayerView = AudioPlayerView(this).apply {
+                                id = View.generateViewId()
+                                layoutParams = LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.WRAP_CONTENT
+                                )
+                                setAudioSource(audioPath, part.title)
+                            }
+
+                            binding.contentContainer.addView(audioPlayerView)
+
+                            noteContentItems.add(NoteContentItem.Audio(
+                                audioView = audioPlayerView,
+                                uri = Uri.EMPTY,
+                                audioPath = audioPath,
+                                title = part.title
+                            ))
+
+                            if (part == parts.lastOrNull() ||
+                                parts.indexOf(part) + 1 >= parts.size ||
+                                parts[parts.indexOf(part) + 1] !is NotePart.TextPart) {
+                                val newEditText = createEditText("")
+                                binding.contentContainer.addView(newEditText)
+                                noteContentItems.add(NoteContentItem.Text(newEditText))
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to load audio player: ${e.message}")
+                            addAudioLoadErrorMessage()
+                        }
+                    }
                 }
             }
 
@@ -228,7 +268,7 @@ class AddNoteActivity : AppCompatActivity() {
                         break
                     }
                 }
-                is NoteContentItem.Image -> {
+                is NoteContentItem.Image, is NoteContentItem.Audio -> {
                     hasContent = true
                     break
                 }
@@ -278,11 +318,38 @@ class AddNoteActivity : AppCompatActivity() {
                         conversionError = true
                     }
                 }
+                is NoteContentItem.Audio -> {
+                    try {
+                        if (item.uri != Uri.EMPTY) {
+                            // New audio - copy to app's storage
+                            Log.d(TAG, "Processing new audio from URI")
+                            val audioFile = copyAudioToInternalStorage(item.uri)
+                            if (audioFile.isNotEmpty()) {
+                                val audioPath = ImageUtils.wrapAudio(audioFile, item.title)
+                                contentParts.add(NotePart.AudioPart(audioPath, item.title))
+                            } else {
+                                Log.e(TAG, "Failed to copy audio file")
+                                conversionError = true
+                            }
+                        } else if (item.audioPath.isNotEmpty()) {
+                            // Existing audio - use the stored path
+                            Log.d(TAG, "Using existing audio data")
+                            contentParts.add(NotePart.AudioPart(item.audioPath, item.title))
+                        } else {
+                            // No valid audio data
+                            Log.e(TAG, "No valid audio data found")
+                            conversionError = true
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing audio: ${e.message}")
+                        conversionError = true
+                    }
+                }
             }
         }
 
         if (conversionError) {
-            Toast.makeText(this, "Beberapa gambar mungkin tidak tersimpan dengan benar", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Beberapa media mungkin tidak tersimpan dengan benar", Toast.LENGTH_LONG).show()
         }
 
         // Serialize content parts
@@ -402,6 +469,136 @@ class AddNoteActivity : AppCompatActivity() {
         noteContentItems.add(NoteContentItem.Text(errorText))
     }
 
+    private fun addAudioLoadErrorMessage() {
+        val errorText = EditText(this).apply {
+            id = View.generateViewId()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setText("[Gagal memuat audio]")
+            isEnabled = false
+            setTextColor(resources.getColor(android.R.color.holo_red_light, theme))
+            setPadding(24, 0, 24, 0)
+        }
+
+        binding.contentContainer.addView(errorText)
+        noteContentItems.add(NoteContentItem.Text(errorText))
+    }
+
+    // Audio Selector Handler
+    private val pickAudioLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                addAudioToNote(uri)
+            }
+        }
+    }
+
+    private fun openAudioPicker() {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+        pickAudioLauncher.launch(intent)
+    }
+
+    private fun addAudioToNote(audioUri: Uri) {
+        // Get audio title/name from the URI
+        val audioTitle = getAudioFileName(audioUri) ?: "Audio Recording"
+
+        try {
+            // Create audio player view
+            val audioPlayerView = AudioPlayerView(this).apply {
+                id = View.generateViewId()
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                setAudioSource(audioUri, audioTitle)
+            }
+
+            binding.contentContainer.addView(audioPlayerView)
+
+            // Add to content items
+            noteContentItems.add(NoteContentItem.Audio(
+                audioView = audioPlayerView,
+                uri = audioUri,
+                title = audioTitle
+            ))
+
+            // Add a text field after audio
+            val newEditText = createEditText("")
+            binding.contentContainer.addView(newEditText)
+            noteContentItems.add(NoteContentItem.Text(newEditText))
+
+            newEditText.requestFocus()
+            binding.scrollView.post {
+                binding.scrollView.smoothScrollTo(0, newEditText.bottom)
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error adding audio to note: ${e.message}")
+            Toast.makeText(this, "Gagal menambahkan audio", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun getAudioFileName(uri: Uri): String? {
+        val cursor = contentResolver.query(uri, null, null, null, null)
+
+        return cursor?.use {
+            val nameIndex = it.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME)
+            if (it.moveToFirst() && nameIndex >= 0) {
+                return it.getString(nameIndex)
+            }
+            null
+        } ?: run {
+            // If we can't get the name from content resolver, try to get it from the URI path
+            uri.lastPathSegment?.split("/")?.lastOrNull()
+        }
+    }
+
+    private fun getAudioDuration(uri: Uri): Long {
+        try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(this, uri)
+            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            retriever.release()
+
+            return durationStr?.toLongOrNull() ?: 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting audio duration: ${e.message}")
+            return 0
+        }
+    }
+
+    private fun copyAudioToInternalStorage(uri: Uri): String {
+        val fileName = getAudioFileName(uri) ?: "audio_${System.currentTimeMillis()}.mp3"
+        val file = File(filesDir, "audio_notes")
+
+        if (!file.exists()) {
+            file.mkdirs()
+        }
+
+        val audioFile = File(file, fileName)
+
+        try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(audioFile).use { output ->
+                    val buffer = ByteArray(4 * 1024) // 4K buffer
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                    }
+                    output.flush()
+                }
+            }
+            return audioFile.absolutePath
+        } catch (e: IOException) {
+            Log.e(TAG, "Error copying audio file: ${e.message}")
+            return ""
+        }
+    }
+
     private fun deleteImageAndEmptyTextField(imageIndex: Int, textFieldIndex: Int, sourceView: View) {
         if (imageIndex >= 0 && imageIndex < noteContentItems.size &&
             textFieldIndex >= 0 && textFieldIndex < noteContentItems.size) {
@@ -431,24 +628,33 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    // Audio
-    private val pickAudioLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                addAudioToNote(uri)
+    private fun deleteAudioAndEmptyTextField(audioIndex: Int, textFieldIndex: Int, sourceView: View) {
+        if (audioIndex >= 0 && audioIndex < noteContentItems.size &&
+            textFieldIndex >= 0 && textFieldIndex < noteContentItems.size) {
+
+            val audioItem = noteContentItems[audioIndex] as? NoteContentItem.Audio ?: return
+            val textItem = noteContentItems[textFieldIndex] as? NoteContentItem.Text ?: return
+
+            binding.contentContainer.removeView(audioItem.audioView)
+            binding.contentContainer.removeView(textItem.editText)
+
+            noteContentItems.removeAt(textFieldIndex)
+            noteContentItems.removeAt(audioIndex)
+
+            if (audioIndex > 0 && noteContentItems[audioIndex - 1] is NoteContentItem.Text) {
+                val previousTextField = (noteContentItems[audioIndex - 1] as NoteContentItem.Text).editText
+                previousTextField.requestFocus()
+                previousTextField.setSelection(previousTextField.text.length)
             }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                sourceView.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+            } else {
+                sourceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            }
+
+            binding.contentContainer.requestLayout()
         }
-    }
-
-    private fun openAudioPicker() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
-        pickAudioLauncher.launch(intent)
-    }
-
-    private fun addAudioToNote(audioUri: Uri) {
-        Toast.makeText(this, "Audio akan diimplementasikan nanti", Toast.LENGTH_SHORT).show()
     }
 
     private fun createEditText(initialText: String): EditText {
@@ -483,9 +689,19 @@ class AddNoteActivity : AppCompatActivity() {
                     (it is NoteContentItem.Text && it.editText == editText)
                 }
 
-                if (currentIndex > 0 && noteContentItems[currentIndex - 1] is NoteContentItem.Image) {
-                    deleteImageAndEmptyTextField(currentIndex - 1, currentIndex, view)
-                    return@setOnKeyListener true
+                if (currentIndex > 0) {
+                    when (val prevItem = noteContentItems[currentIndex - 1]) {
+                        is NoteContentItem.Image -> {
+                            deleteImageAndEmptyTextField(currentIndex - 1, currentIndex, view)
+                            return@setOnKeyListener true
+                        }
+                        is NoteContentItem.Audio -> {
+                            // Similar logic for deleting audio
+                            deleteAudioAndEmptyTextField(currentIndex - 1, currentIndex, view)
+                            return@setOnKeyListener true
+                        }
+                        else -> {} // Do nothing for other types
+                    }
                 }
             }
             false
