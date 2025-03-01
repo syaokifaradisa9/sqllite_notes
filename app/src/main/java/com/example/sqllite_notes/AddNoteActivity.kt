@@ -48,21 +48,21 @@ class AddNoteActivity : AppCompatActivity() {
         setupPermissionManager()
         setupListeners()
 
-        // Check if we're editing an existing note
         noteId = intent.getLongExtra(MainActivity.EXTRA_NOTE_ID, 0)
         Log.d(TAG, "Opening note with ID: $noteId")
 
+        binding.contentContainer.apply {
+            this.showDividers = LinearLayout.SHOW_DIVIDER_NONE
+        }
+
         if (noteId > 0) {
-            // Editing existing note
             loadNote(noteId)
         } else {
-            // Creating new note
             initializeEmptyContent()
         }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        // Only show delete option if editing an existing note
         if (noteId > 0) {
             menuInflater.inflate(R.menu.menu_delete_note, menu)
         }
@@ -144,7 +144,6 @@ class AddNoteActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
 
-        // Update title based on whether we're editing or creating
         if (noteId > 0) {
             binding.toolbar.title = "Edit Catatan"
         } else {
@@ -153,17 +152,14 @@ class AddNoteActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // Image button
         binding.btnAddImage.setOnClickListener {
             permissionManager.checkAndRequestPermission(PermissionManager.PermissionType.IMAGE)
         }
 
-        // Audio button
         binding.btnAddAudio.setOnClickListener {
             permissionManager.checkAndRequestPermission(PermissionManager.PermissionType.AUDIO)
         }
 
-        // Save button
         binding.btnSimpan.setOnClickListener {
             saveNote()
         }
@@ -208,7 +204,8 @@ class AddNoteActivity : AppCompatActivity() {
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         600
                                     ).apply {
-                                        setMargins(16, 8, 16, 8)
+                                        // Removed top margin to reduce spacing
+                                        setMargins(16, 0, 16, 0)
                                     }
                                     scaleType = ImageView.ScaleType.CENTER_CROP
                                     setImageBitmap(bitmap)
@@ -224,8 +221,6 @@ class AddNoteActivity : AppCompatActivity() {
                                     base64String = base64String
                                 ))
 
-                                // Add a new text field after each image if this isn't the last item
-                                // or if the next item isn't already a text part
                                 if (part != parts.lastOrNull() &&
                                     (parts.indexOf(part) + 1 >= parts.size ||
                                             parts[parts.indexOf(part) + 1] !is NotePart.TextPart)) {
@@ -234,12 +229,10 @@ class AddNoteActivity : AppCompatActivity() {
                                     noteContentItems.add(NoteContentItem.Text(newEditText))
                                 }
                             } else {
-                                // Failed to decode - add an error message
                                 Log.e(TAG, "Failed to decode image")
                                 addImageLoadErrorMessage()
                             }
                         } else {
-                            // Not a valid image string - add an error message
                             Log.e(TAG, "Invalid image data format")
                             addImageLoadErrorMessage()
                         }
@@ -247,28 +240,29 @@ class AddNoteActivity : AppCompatActivity() {
                 }
             }
 
-            // If no content was loaded, add an empty text field
             if (noteContentItems.isEmpty()) {
                 initializeEmptyContent()
             }
         } else {
-            // Note not found, initialize with empty content
             initializeEmptyContent()
         }
     }
 
-    // Helper method to create a standardized EditText
     private fun createEditText(initialText: String): EditText {
         return EditText(this).apply {
             id = View.generateViewId()
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                // Add this to reduce bottom spacing
+                setMargins(24, 0, 24, 0) // Zero bottom margin
+            }
             hint = "Tulis disini..."
             setBackgroundResource(android.R.color.transparent)
-            setPadding(24, 16, 24, 16)
-            minHeight = 300
+            // Reduce the padding, especially the bottom padding
+            setPadding(0, 8, 0, 0) // Minimal top padding, zero bottom padding
+            minHeight = 100 // Reduce minimum height if needed
             gravity = android.view.Gravity.TOP or android.view.Gravity.START
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
             setText(initialText)
@@ -278,7 +272,6 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    // Helper method to add an error message when image loading fails
     private fun addImageLoadErrorMessage() {
         val errorText = EditText(this).apply {
             id = View.generateViewId()
@@ -289,14 +282,13 @@ class AddNoteActivity : AppCompatActivity() {
             setText("[Gagal memuat gambar]")
             isEnabled = false
             setTextColor(resources.getColor(android.R.color.holo_red_light, theme))
-            setPadding(24, 16, 24, 16)
+            setPadding(24, 0, 24, 0)
         }
 
         binding.contentContainer.addView(errorText)
         noteContentItems.add(NoteContentItem.Text(errorText))
     }
 
-    // Initialize with a single empty text field
     private fun initializeEmptyContent() {
         val firstEditText = createEditText("")
         binding.contentContainer.addView(firstEditText)
@@ -369,7 +361,8 @@ class AddNoteActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 600
             ).apply {
-                setMargins(16, 8, 16, 8)
+                // Removed top margin to reduce spacing between text and image
+                setMargins(16, 0, 16, 0)
             }
             scaleType = ImageView.ScaleType.CENTER_CROP
             setImageURI(imageUri)

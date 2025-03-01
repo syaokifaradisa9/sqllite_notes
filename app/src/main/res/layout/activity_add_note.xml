@@ -54,25 +54,13 @@
                     android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Container untuk konten dinamis (text fields dan images) -->
             <LinearLayout
                 android:id="@+id/contentContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <!-- Initial text field -->
-                <EditText
-                    android:id="@+id/edtContent1"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:hint="Mulai menulis..."
-                    android:inputType="textMultiLine"
-                    android:minHeight="100dp"
-                    android:gravity="top|start"
-                    android:padding="8dp" />
-
+                android:orientation="vertical"
+                android:padding="0dp"
+                android:clipToPadding="false">
             </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
