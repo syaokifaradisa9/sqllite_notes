@@ -166,30 +166,24 @@ class AddNoteActivity : AppCompatActivity() {
     }
 
     private fun loadNote(noteId: Long) {
-        // Clear any existing content
         binding.contentContainer.removeAllViews()
         noteContentItems.clear()
 
         val note = dbHelper.getNoteById(noteId)
         if (note != null) {
-            // Set title
             binding.edtJudul.setText(note.title)
 
-            // Parse content into parts
             val parts = ImageUtils.deserializeNoteParts(note.content)
             Log.d(TAG, "Loaded note with ${parts.size} parts")
 
-            // For each part, create the appropriate view and add it to the container
             for (part in parts) {
                 when (part) {
                     is NotePart.TextPart -> {
-                        // Add a text field for text content
                         val editText = createEditText(part.text)
                         binding.contentContainer.addView(editText)
                         noteContentItems.add(NoteContentItem.Text(editText))
                     }
                     is NotePart.ImagePart -> {
-                        // Try to decode the Base64 string to a bitmap
                         val base64String = part.imagePath
                         Log.d(TAG, "Loading image: ${base64String.take(50)}...")
 
@@ -197,14 +191,12 @@ class AddNoteActivity : AppCompatActivity() {
                             val bitmap = ImageUtils.base64ToBitmap(base64String)
 
                             if (bitmap != null) {
-                                // Successfully decoded - create an ImageView
                                 val imageView = ImageView(this).apply {
                                     id = View.generateViewId()
                                     layoutParams = LinearLayout.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         600
                                     ).apply {
-                                        // Removed top margin to reduce spacing
                                         setMargins(16, 0, 16, 0)
                                     }
                                     scaleType = ImageView.ScaleType.CENTER_CROP
@@ -214,16 +206,15 @@ class AddNoteActivity : AppCompatActivity() {
 
                                 binding.contentContainer.addView(imageView)
 
-                                // Store the image with its original Base64 data
                                 noteContentItems.add(NoteContentItem.Image(
                                     imageView = imageView,
                                     uri = Uri.EMPTY,
                                     base64String = base64String
                                 ))
 
-                                if (part != parts.lastOrNull() &&
-                                    (parts.indexOf(part) + 1 >= parts.size ||
-                                            parts[parts.indexOf(part) + 1] !is NotePart.TextPart)) {
+                                if (part == parts.lastOrNull() ||
+                                    parts.indexOf(part) + 1 >= parts.size ||
+                                    parts[parts.indexOf(part) + 1] !is NotePart.TextPart) {
                                     val newEditText = createEditText("")
                                     binding.contentContainer.addView(newEditText)
                                     noteContentItems.add(NoteContentItem.Text(newEditText))
@@ -260,14 +251,13 @@ class AddNoteActivity : AppCompatActivity() {
             }
             hint = "Tulis disini..."
             setBackgroundResource(android.R.color.transparent)
-            // Reduce the padding, especially the bottom padding
+
             setPadding(0, 8, 0, 0) // Minimal top padding, zero bottom padding
             minHeight = 100 // Reduce minimum height if needed
             gravity = android.view.Gravity.TOP or android.view.Gravity.START
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
             setText(initialText)
 
-            // Add backspace listener
             addBackspaceListenerToEditText(this)
         }
     }
