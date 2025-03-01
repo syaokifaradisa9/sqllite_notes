@@ -9,6 +9,8 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
@@ -16,6 +18,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.sqllite_notes.databinding.ActivityAddNoteBinding
 import com.example.sqllite_notes.db.NoteDbHelper
@@ -58,6 +61,51 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        // Only show delete option if editing an existing note
+        if (noteId > 0) {
+            menuInflater.inflate(R.menu.menu_delete_note, menu)
+        }
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_delete -> {
+                confirmDeleteNote()
+                true
+            }
+            android.R.id.home -> {
+                onBackPressed()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun confirmDeleteNote() {
+        AlertDialog.Builder(this)
+            .setTitle("Hapus Catatan")
+            .setMessage("Apakah Anda yakin ingin menghapus catatan ini?")
+            .setPositiveButton("Hapus") { _, _ ->
+                deleteNote()
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun deleteNote() {
+        if (noteId > 0) {
+            val result = dbHelper.deleteNote(noteId)
+            if (result > 0) {
+                Toast.makeText(this, "Catatan berhasil dihapus", Toast.LENGTH_SHORT).show()
+                finish()
+            } else {
+                Toast.makeText(this, "Gagal menghapus catatan", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -95,9 +143,6 @@ class AddNoteActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
-        binding.toolbar.setNavigationOnClickListener {
-            onBackPressed()
-        }
 
         // Update title based on whether we're editing or creating
         if (noteId > 0) {
