@@ -23,7 +23,7 @@ import com.example.sqllite_notes.models.Note
 import com.example.sqllite_notes.models.NoteContentItem
 import com.example.sqllite_notes.models.NotePart
 import com.example.sqllite_notes.utils.AudioPlayerView
-import com.example.sqllite_notes.utils.AudioSelectorHelper
+import com.example.sqllite_notes.helpers.AudioSelectorHelper
 import com.example.sqllite_notes.utils.MultimediaUtils
 
 class AddNoteActivity : AppCompatActivity() {

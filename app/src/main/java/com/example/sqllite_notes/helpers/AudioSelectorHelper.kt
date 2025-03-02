@@ -1,4 +1,4 @@
-package com.example.sqllite_notes.utils
+package com.example.sqllite_notes.helpers
 
 import android.app.Activity
 import android.content.Intent
