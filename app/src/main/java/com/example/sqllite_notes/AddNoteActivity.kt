@@ -26,30 +26,54 @@ import com.example.sqllite_notes.utils.AudioPlayerView
 import com.example.sqllite_notes.helpers.AudioSelectorHelper
 import com.example.sqllite_notes.utils.MultimediaUtils
 
+/**
+ * AddNoteActivity adalah kelas yang bertanggung jawab untuk menangani:
+ * 1. Pembuatan catatan baru
+ * 2. Pengeditan catatan yang sudah ada
+ * 3. Penambahan konten multimedia (gambar, audio) ke catatan
+ * 4. Penyimpanan data catatan ke dalam database
+ */
 class AddNoteActivity : AppCompatActivity() {
+    // View binding untuk mengakses elemen UI tanpa findViewById
     private lateinit var binding: ActivityAddNoteBinding
+
+    // Daftar untuk menyimpan semua item konten catatan (teks, gambar, audio)
     private val noteContentItems = mutableListOf<NoteContentItem>()
+
+    // Manager untuk memeriksa dan meminta izin akses ke media
     private lateinit var permissionManager: PermissionManager
+
+    // Helper untuk mengakses dan memanipulasi database SQLite
     private lateinit var dbHelper: NoteDbHelper
+
+    // ID catatan yang sedang diedit (0 jika catatan baru)
     private var noteId: Long = 0
 
-    // Helper classes for selecting media
+    // Helper classes untuk memilih media
     private lateinit var imageSelectorHelper: ImageSelectorHelper
     private lateinit var audioSelectorHelper: AudioSelectorHelper
 
+    // Tag untuk logging
     private val TAG = "AddNoteActivity"
 
-    // Setup
+    /**
+     * Menginisialisasi konten kosong (EditText pertama) saat
+     * membuat catatan baru
+     */
     private fun initializeEmptyContent() {
         val firstEditText = createEditText("")
         binding.contentContainer.addView(firstEditText)
         noteContentItems.add(NoteContentItem.Text(firstEditText))
     }
 
+    /**
+     * Menyiapkan permission manager untuk menangani izin akses media
+     */
     private fun setupPermissionManager() {
         permissionManager = PermissionManager(
             activity = this,
             onPermissionGranted = { permissionType ->
+                // Ketika izin diberikan, buka picker sesuai jenis izin
                 when (permissionType) {
                     PermissionManager.PermissionType.IMAGE -> imageSelectorHelper.openImagePicker()
                     PermissionManager.PermissionType.AUDIO -> audioSelectorHelper.openAudioPicker()
@@ -59,11 +83,15 @@ class AddNoteActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * Menyiapkan toolbar dan judul halaman
+     */
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
 
+        // Sesuaikan judul berdasarkan mode (tambah/edit)
         if (noteId > 0) {
             binding.toolbar.title = "Edit Catatan"
         } else {
@@ -71,33 +99,45 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Menyiapkan listener untuk tombol dan aksi pengguna
+     */
     private fun setupListeners() {
+        // Listener untuk tombol tambah gambar
         binding.btnAddImage.setOnClickListener {
             permissionManager.checkAndRequestPermission(PermissionManager.PermissionType.IMAGE)
         }
 
+        // Listener untuk tombol tambah audio
         binding.btnAddAudio.setOnClickListener {
             permissionManager.checkAndRequestPermission(PermissionManager.PermissionType.AUDIO)
         }
 
+        // Listener untuk tombol simpan
         binding.btnSimpan.setOnClickListener {
             saveNote()
         }
     }
 
+    /**
+     * Menyiapkan helper untuk memilih media (gambar dan audio)
+     */
     private fun setupMediaSelectors() {
-        // Initialize image selector helper
+        // Inisialisasi helper untuk memilih gambar
         imageSelectorHelper = ImageSelectorHelper(this) { uri ->
             addImageToNote(uri)
         }
 
-        // Initialize audio selector helper
+        // Inisialisasi helper untuk memilih audio
         audioSelectorHelper = AudioSelectorHelper(this) { uri, title ->
             addAudioToNote(uri, title)
         }
     }
 
-    // Initialization
+    /**
+     * Dipanggil saat activity pertama kali dibuat.
+     * Menginisialisasi UI dan semua komponen yang diperlukan.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -111,6 +151,7 @@ class AddNoteActivity : AppCompatActivity() {
         setupPermissionManager()
         setupListeners()
 
+        // Ambil ID catatan dari intent (jika dalam mode edit)
         noteId = intent.getLongExtra(MainActivity.EXTRA_NOTE_ID, 0)
         Log.d(TAG, "Opening note with ID: $noteId")
 
@@ -118,6 +159,7 @@ class AddNoteActivity : AppCompatActivity() {
             this.showDividers = LinearLayout.SHOW_DIVIDER_NONE
         }
 
+        // Muat catatan jika dalam mode edit, atau inisialisasi kosong jika mode baru
         if (noteId > 0) {
             loadNote(noteId)
         } else {
@@ -125,21 +167,31 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    // Menu
+    /**
+     * Dipanggil saat menu options perlu dibuat.
+     * Menambahkan menu hapus jika dalam mode edit.
+     */
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         if (noteId > 0) {
+            // Hanya tampilkan menu hapus jika sedang mengedit catatan yang ada
             menuInflater.inflate(R.menu.menu_delete_note, menu)
         }
         return true
     }
 
+    /**
+     * Dipanggil saat item menu dipilih.
+     * Menangani aksi menu (hapus atau kembali).
+     */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_delete -> {
+                // Konfirmasi penghapusan catatan
                 confirmDeleteNote()
                 true
             }
             android.R.id.home -> {
+                // Kembali ke halaman sebelumnya
                 onBackPressed()
                 true
             }
@@ -147,7 +199,10 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    // Find Note By Id When Page is loaded
+    /**
+     * Memuat catatan dari database berdasarkan ID
+     * dan menampilkan kontennya di UI.
+     */
     private fun loadNote(noteId: Long) {
         binding.contentContainer.removeAllViews()
         noteContentItems.clear()
@@ -156,17 +211,21 @@ class AddNoteActivity : AppCompatActivity() {
         if (note != null) {
             binding.edtJudul.setText(note.title)
 
+            // Deserialisasi konten catatan menjadi bagian-bagian terpisah (teks, gambar, audio)
             val parts = MultimediaUtils.deserializeNoteParts(note.content)
             Log.d(TAG, "Loaded note with ${parts.size} parts")
 
+            // Muat setiap bagian ke dalam UI
             for (part in parts) {
                 when (part) {
                     is NotePart.TextPart -> {
+                        // Tambahkan konten teks ke UI
                         val editText = createEditText(part.text)
                         binding.contentContainer.addView(editText)
                         noteContentItems.add(NoteContentItem.Text(editText))
                     }
                     is NotePart.ImagePart -> {
+                        // Tambahkan konten gambar ke UI
                         val base64String = part.imagePath
                         Log.d(TAG, "Loading image: ${base64String.take(50)}...")
 
@@ -174,9 +233,10 @@ class AddNoteActivity : AppCompatActivity() {
                             val bitmap = MultimediaUtils.base64ToBitmap(base64String)
 
                             if (bitmap != null) {
-                                // Calculate the aspect ratio of the bitmap
+                                // Hitung rasio aspek bitmap
                                 val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
 
+                                // Buat ImageView untuk menampilkan gambar
                                 val imageView = ImageView(this).apply {
                                     id = View.generateViewId()
                                     layoutParams = LinearLayout.LayoutParams(
@@ -185,7 +245,7 @@ class AddNoteActivity : AppCompatActivity() {
                                     ).apply {
                                         setMargins(16, 8, 16, 8)
                                     }
-                                    adjustViewBounds = true  // This preserves aspect ratio
+                                    adjustViewBounds = true  // Mempertahankan rasio aspek
                                     scaleType = ImageView.ScaleType.FIT_CENTER
                                     setImageBitmap(bitmap)
                                     contentDescription = "Note Image"
@@ -193,12 +253,14 @@ class AddNoteActivity : AppCompatActivity() {
 
                                 binding.contentContainer.addView(imageView)
 
+                                // Tambahkan ke daftar item konten
                                 noteContentItems.add(NoteContentItem.Image(
                                     imageView = imageView,
                                     uri = Uri.EMPTY,
                                     base64String = base64String
                                 ))
 
+                                // Tambahkan EditText kosong setelah gambar jika diperlukan
                                 if (part == parts.lastOrNull() ||
                                     parts.indexOf(part) + 1 >= parts.size ||
                                     parts[parts.indexOf(part) + 1] !is NotePart.TextPart) {
@@ -216,10 +278,12 @@ class AddNoteActivity : AppCompatActivity() {
                         }
                     }
                     is NotePart.AudioPart -> {
+                        // Tambahkan konten audio ke UI
                         val audioPath = part.audioPath
                         Log.d(TAG, "Loading audio: ${audioPath.take(50)}...")
 
                         try {
+                            // Buat AudioPlayerView untuk memutar audio
                             val audioPlayerView = AudioPlayerView(this).apply {
                                 id = View.generateViewId()
                                 layoutParams = LinearLayout.LayoutParams(
@@ -231,6 +295,7 @@ class AddNoteActivity : AppCompatActivity() {
 
                             binding.contentContainer.addView(audioPlayerView)
 
+                            // Tambahkan ke daftar item konten
                             noteContentItems.add(NoteContentItem.Audio(
                                 audioView = audioPlayerView,
                                 uri = Uri.EMPTY,
@@ -238,6 +303,7 @@ class AddNoteActivity : AppCompatActivity() {
                                 title = part.title
                             ))
 
+                            // Tambahkan EditText kosong setelah audio jika diperlukan
                             if (part == parts.lastOrNull() ||
                                 parts.indexOf(part) + 1 >= parts.size ||
                                 parts[parts.indexOf(part) + 1] !is NotePart.TextPart) {
@@ -253,18 +319,23 @@ class AddNoteActivity : AppCompatActivity() {
                 }
             }
 
+            // Jika tidak ada konten yang berhasil dimuat, inisialisasi dengan konten kosong
             if (noteContentItems.isEmpty()) {
                 initializeEmptyContent()
             }
         } else {
+            // Jika catatan tidak ditemukan, inisialisasi dengan konten kosong
             initializeEmptyContent()
         }
     }
 
-    // Save Note Action
+    /**
+     * Menyimpan catatan ke database (membuat baru atau memperbarui yang ada)
+     */
     private fun saveNote() {
         val title = binding.edtJudul.text.toString().trim()
 
+        // Validasi judul
         if (title.isEmpty()) {
             binding.tilJudul.error = "Judul tidak boleh kosong"
             return
@@ -272,13 +343,13 @@ class AddNoteActivity : AppCompatActivity() {
             binding.tilJudul.error = null
         }
 
-        // Verify there's actual content
+        // Verifikasi ada konten aktual
         var hasContent = false
         for (item in noteContentItems) {
             when (item) {
                 is NoteContentItem.Text -> {
                     if (item.editText.text.toString().trim().isNotEmpty() &&
-                        item.editText.isEnabled) { // Skip disabled error messages
+                        item.editText.isEnabled) { // Lewati pesan error yang dinonaktifkan
                         hasContent = true
                         break
                     }
@@ -290,27 +361,29 @@ class AddNoteActivity : AppCompatActivity() {
             }
         }
 
+        // Validasi konten
         if (!hasContent) {
             Toast.makeText(this, "Catatan tidak boleh kosong", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Process content items into serializable parts
+        // Proses item konten menjadi bagian yang dapat diserialisasi
         val contentParts = mutableListOf<NotePart>()
         var conversionError = false
 
+        // Konversi setiap item konten ke format yang dapat disimpan
         for (item in noteContentItems) {
             when (item) {
                 is NoteContentItem.Text -> {
                     val text = item.editText.text.toString().trim()
-                    if (text.isNotEmpty() && item.editText.isEnabled) { // Skip disabled error messages
+                    if (text.isNotEmpty() && item.editText.isEnabled) { // Lewati pesan error yang dinonaktifkan
                         contentParts.add(NotePart.TextPart(text))
                     }
                 }
                 is NoteContentItem.Image -> {
                     try {
                         if (item.uri != Uri.EMPTY) {
-                            // New image - convert from URI to Base64
+                            // Gambar baru - konversi dari URI ke Base64
                             Log.d(TAG, "Processing new image from URI")
                             val base64Image = MultimediaUtils.uriToBase64(contentResolver, item.uri)
                             if (base64Image != null) {
@@ -320,11 +393,11 @@ class AddNoteActivity : AppCompatActivity() {
                                 conversionError = true
                             }
                         } else if (item.base64String.isNotEmpty()) {
-                            // Existing image - use the stored Base64 string
+                            // Gambar yang sudah ada - gunakan string Base64 yang tersimpan
                             Log.d(TAG, "Using existing image Base64 data")
                             contentParts.add(NotePart.ImagePart(item.base64String))
                         } else {
-                            // No valid image data
+                            // Tidak ada data gambar yang valid
                             Log.e(TAG, "No valid image data found")
                             conversionError = true
                         }
@@ -336,7 +409,7 @@ class AddNoteActivity : AppCompatActivity() {
                 is NoteContentItem.Audio -> {
                     try {
                         if (item.uri != Uri.EMPTY) {
-                            // New audio - copy to app's storage
+                            // Audio baru - salin ke penyimpanan aplikasi
                             Log.d(TAG, "Processing new audio from URI")
                             val audioFile = audioSelectorHelper.copyAudioToInternalStorage(item.uri)
                             if (audioFile.isNotEmpty()) {
@@ -347,11 +420,11 @@ class AddNoteActivity : AppCompatActivity() {
                                 conversionError = true
                             }
                         } else if (item.audioPath.isNotEmpty()) {
-                            // Existing audio - use the stored path
+                            // Audio yang sudah ada - gunakan path yang tersimpan
                             Log.d(TAG, "Using existing audio data")
                             contentParts.add(NotePart.AudioPart(item.audioPath, item.title))
                         } else {
-                            // No valid audio data
+                            // Tidak ada data audio yang valid
                             Log.e(TAG, "No valid audio data found")
                             conversionError = true
                         }
@@ -363,15 +436,16 @@ class AddNoteActivity : AppCompatActivity() {
             }
         }
 
+        // Tampilkan peringatan jika ada masalah konversi
         if (conversionError) {
             Toast.makeText(this, "Beberapa media mungkin tidak tersimpan dengan benar", Toast.LENGTH_LONG).show()
         }
 
-        // Serialize content parts
+        // Serialisasi bagian konten
         val serializedContent = MultimediaUtils.serializeNoteParts(contentParts)
         Log.d(TAG, "Serialized content with ${contentParts.size} parts")
 
-        // Create or update note in database
+        // Buat atau perbarui catatan di database
         val note = Note(
             id = noteId,
             title = title,
@@ -380,10 +454,10 @@ class AddNoteActivity : AppCompatActivity() {
 
         val success: Boolean
         if (noteId > 0) {
-            // Update existing note
+            // Perbarui catatan yang sudah ada
             success = dbHelper.updateNote(note) > 0
         } else {
-            // Insert new note
+            // Tambahkan catatan baru
             val newId = dbHelper.insertNote(note)
             success = newId > 0
             if (success) {
@@ -391,6 +465,7 @@ class AddNoteActivity : AppCompatActivity() {
             }
         }
 
+        // Tampilkan pesan hasil penyimpanan dan akhiri activity jika berhasil
         if (success) {
             Toast.makeText(this, "Catatan berhasil disimpan", Toast.LENGTH_SHORT).show()
             finish()
@@ -399,7 +474,9 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    // Delete Note Action
+    /**
+     * Menampilkan dialog konfirmasi untuk menghapus catatan
+     */
     private fun confirmDeleteNote() {
         AlertDialog.Builder(this)
             .setTitle("Hapus Catatan")
@@ -411,6 +488,9 @@ class AddNoteActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * Menghapus catatan dari database
+     */
     private fun deleteNote() {
         if (noteId > 0) {
             val result = dbHelper.deleteNote(noteId)
@@ -423,26 +503,35 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    // Methods for adding media to the note
+    /**
+     * Menambahkan gambar ke catatan
+     */
     private fun addImageToNote(imageUri: Uri) {
+        // Buat ImageView untuk menampilkan gambar
         val imageView = imageSelectorHelper.createImageView(imageUri)
         binding.contentContainer.addView(imageView)
 
+        // Tambahkan ke daftar item konten
         noteContentItems.add(NoteContentItem.Image(imageView, imageUri))
 
+        // Tambahkan EditText kosong setelah gambar
         val newEditText = createEditText("")
         binding.contentContainer.addView(newEditText)
         noteContentItems.add(NoteContentItem.Text(newEditText))
 
+        // Fokus ke EditText dan scroll ke posisinya
         newEditText.requestFocus()
         binding.scrollView.post {
             binding.scrollView.smoothScrollTo(0, newEditText.bottom)
         }
     }
 
+    /**
+     * Menambahkan audio ke catatan
+     */
     private fun addAudioToNote(audioUri: Uri, audioTitle: String = "Audio Recording") {
         try {
-            // Create audio player view
+            // Buat AudioPlayerView untuk memutar audio
             val audioPlayerView = AudioPlayerView(this).apply {
                 id = View.generateViewId()
                 layoutParams = LinearLayout.LayoutParams(
@@ -454,18 +543,19 @@ class AddNoteActivity : AppCompatActivity() {
 
             binding.contentContainer.addView(audioPlayerView)
 
-            // Add to content items
+            // Tambahkan ke daftar item konten
             noteContentItems.add(NoteContentItem.Audio(
                 audioView = audioPlayerView,
                 uri = audioUri,
                 title = audioTitle
             ))
 
-            // Add a text field after audio
+            // Tambahkan EditText kosong setelah audio
             val newEditText = createEditText("")
             binding.contentContainer.addView(newEditText)
             noteContentItems.add(NoteContentItem.Text(newEditText))
 
+            // Fokus ke EditText dan scroll ke posisinya
             newEditText.requestFocus()
             binding.scrollView.post {
                 binding.scrollView.smoothScrollTo(0, newEditText.bottom)
@@ -477,7 +567,9 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
-    // Load Error
+    /**
+     * Menambahkan pesan error ketika gagal memuat gambar
+     */
     private fun addImageLoadErrorMessage() {
         val errorText = EditText(this).apply {
             id = View.generateViewId()
@@ -495,6 +587,9 @@ class AddNoteActivity : AppCompatActivity() {
         noteContentItems.add(NoteContentItem.Text(errorText))
     }
 
+    /**
+     * Menambahkan pesan error ketika gagal memuat audio
+     */
     private fun addAudioLoadErrorMessage() {
         val errorText = EditText(this).apply {
             id = View.generateViewId()
@@ -512,29 +607,35 @@ class AddNoteActivity : AppCompatActivity() {
         noteContentItems.add(NoteContentItem.Text(errorText))
     }
 
-    // Delete text for delete media
+    /**
+     * Menambahkan listener backspace ke EditText untuk menangani
+     * penghapusan media dengan backspace
+     */
     private fun addBackspaceListenerToEditText(editText: EditText) {
         editText.setOnKeyListener { view, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_DEL
                 && event.action == KeyEvent.ACTION_DOWN
                 && editText.text.isEmpty()) {
 
+                // Cari indeks EditText saat ini dalam daftar item konten
                 val currentIndex = noteContentItems.indexOfFirst {
                     (it is NoteContentItem.Text && it.editText == editText)
                 }
 
+                // Jika ada item sebelumnya, periksa jenisnya
                 if (currentIndex > 0) {
                     when (val prevItem = noteContentItems[currentIndex - 1]) {
                         is NoteContentItem.Image -> {
+                            // Hapus gambar dan EditText kosong
                             deleteImageAndEmptyTextField(currentIndex - 1, currentIndex, view)
                             return@setOnKeyListener true
                         }
                         is NoteContentItem.Audio -> {
-                            // Similar logic for deleting audio
+                            // Hapus audio dan EditText kosong
                             deleteAudioAndEmptyTextField(currentIndex - 1, currentIndex, view)
                             return@setOnKeyListener true
                         }
-                        else -> {} // Do nothing for other types
+                        else -> {} // Tidak melakukan apa-apa untuk jenis lain
                     }
                 }
             }
@@ -542,65 +643,85 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Menghapus gambar dan EditText kosong yang mengikutinya
+     */
     private fun deleteImageAndEmptyTextField(imageIndex: Int, textFieldIndex: Int, sourceView: View) {
         if (imageIndex >= 0 && imageIndex < noteContentItems.size &&
             textFieldIndex >= 0 && textFieldIndex < noteContentItems.size) {
 
+            // Pastikan item yang akan dihapus adalah Image dan Text
             val imageItem = noteContentItems[imageIndex] as? NoteContentItem.Image ?: return
             val textItem = noteContentItems[textFieldIndex] as? NoteContentItem.Text ?: return
 
+            // Hapus view dari container
             binding.contentContainer.removeView(imageItem.imageView)
             binding.contentContainer.removeView(textItem.editText)
 
+            // Hapus dari daftar item konten
             noteContentItems.removeAt(textFieldIndex)
             noteContentItems.removeAt(imageIndex)
 
+            // Fokus ke TextField sebelumnya jika ada
             if (imageIndex > 0 && noteContentItems[imageIndex - 1] is NoteContentItem.Text) {
                 val previousTextField = (noteContentItems[imageIndex - 1] as NoteContentItem.Text).editText
                 previousTextField.requestFocus()
                 previousTextField.setSelection(previousTextField.text.length)
             }
 
+            // Berikan feedback haptic
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 sourceView.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
             } else {
                 sourceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             }
 
+            // Minta layout untuk diperbarui
             binding.contentContainer.requestLayout()
         }
     }
 
+    /**
+     * Menghapus audio dan EditText kosong yang mengikutinya
+     */
     private fun deleteAudioAndEmptyTextField(audioIndex: Int, textFieldIndex: Int, sourceView: View) {
         if (audioIndex >= 0 && audioIndex < noteContentItems.size &&
             textFieldIndex >= 0 && textFieldIndex < noteContentItems.size) {
 
+            // Pastikan item yang akan dihapus adalah Audio dan Text
             val audioItem = noteContentItems[audioIndex] as? NoteContentItem.Audio ?: return
             val textItem = noteContentItems[textFieldIndex] as? NoteContentItem.Text ?: return
 
+            // Hapus view dari container
             binding.contentContainer.removeView(audioItem.audioView)
             binding.contentContainer.removeView(textItem.editText)
 
+            // Hapus dari daftar item konten
             noteContentItems.removeAt(textFieldIndex)
             noteContentItems.removeAt(audioIndex)
 
+            // Fokus ke TextField sebelumnya jika ada
             if (audioIndex > 0 && noteContentItems[audioIndex - 1] is NoteContentItem.Text) {
                 val previousTextField = (noteContentItems[audioIndex - 1] as NoteContentItem.Text).editText
                 previousTextField.requestFocus()
                 previousTextField.setSelection(previousTextField.text.length)
             }
 
+            // Berikan feedback haptic
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 sourceView.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
             } else {
                 sourceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             }
 
+            // Minta layout untuk diperbarui
             binding.contentContainer.requestLayout()
         }
     }
 
-    // Render text field
+    /**
+     * Membuat EditText baru dengan konfigurasi yang sesuai
+     */
     private fun createEditText(initialText: String): EditText {
         return EditText(this).apply {
             id = View.generateViewId()
@@ -619,6 +740,7 @@ class AddNoteActivity : AppCompatActivity() {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
             setText(initialText)
 
+            // Tambahkan listener backspace untuk menghapus media
             addBackspaceListenerToEditText(this)
         }
     }
