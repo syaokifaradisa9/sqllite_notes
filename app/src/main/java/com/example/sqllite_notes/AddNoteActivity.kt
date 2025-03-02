@@ -27,7 +27,7 @@ import com.example.sqllite_notes.models.Note
 import com.example.sqllite_notes.models.NoteContentItem
 import com.example.sqllite_notes.models.NotePart
 import com.example.sqllite_notes.utils.AudioPlayerView
-import com.example.sqllite_notes.utils.ImageUtils
+import com.example.sqllite_notes.utils.MultimediaUtils
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -37,7 +37,7 @@ class AddNoteActivity : AppCompatActivity() {
     private val noteContentItems = mutableListOf<NoteContentItem>()
     private lateinit var permissionManager: PermissionManager
     private lateinit var dbHelper: NoteDbHelper
-    private var noteId: Long = 0 // 0 means new note
+    private var noteId: Long = 0
 
     private val TAG = "AddNoteActivity"
 
@@ -145,7 +145,7 @@ class AddNoteActivity : AppCompatActivity() {
         if (note != null) {
             binding.edtJudul.setText(note.title)
 
-            val parts = ImageUtils.deserializeNoteParts(note.content)
+            val parts = MultimediaUtils.deserializeNoteParts(note.content)
             Log.d(TAG, "Loaded note with ${parts.size} parts")
 
             for (part in parts) {
@@ -159,8 +159,8 @@ class AddNoteActivity : AppCompatActivity() {
                         val base64String = part.imagePath
                         Log.d(TAG, "Loading image: ${base64String.take(50)}...")
 
-                        if (ImageUtils.isImage(base64String)) {
-                            val bitmap = ImageUtils.base64ToBitmap(base64String)
+                        if (MultimediaUtils.isImage(base64String)) {
+                            val bitmap = MultimediaUtils.base64ToBitmap(base64String)
 
                             if (bitmap != null) {
                                 val imageView = ImageView(this).apply {
@@ -297,7 +297,7 @@ class AddNoteActivity : AppCompatActivity() {
                         if (item.uri != Uri.EMPTY) {
                             // New image - convert from URI to Base64
                             Log.d(TAG, "Processing new image from URI")
-                            val base64Image = ImageUtils.uriToBase64(contentResolver, item.uri)
+                            val base64Image = MultimediaUtils.uriToBase64(contentResolver, item.uri)
                             if (base64Image != null) {
                                 contentParts.add(NotePart.ImagePart(base64Image))
                             } else {
@@ -325,7 +325,7 @@ class AddNoteActivity : AppCompatActivity() {
                             Log.d(TAG, "Processing new audio from URI")
                             val audioFile = copyAudioToInternalStorage(item.uri)
                             if (audioFile.isNotEmpty()) {
-                                val audioPath = ImageUtils.wrapAudio(audioFile, item.title)
+                                val audioPath = MultimediaUtils.wrapAudio(audioFile, item.title)
                                 contentParts.add(NotePart.AudioPart(audioPath, item.title))
                             } else {
                                 Log.e(TAG, "Failed to copy audio file")
@@ -353,7 +353,7 @@ class AddNoteActivity : AppCompatActivity() {
         }
 
         // Serialize content parts
-        val serializedContent = ImageUtils.serializeNoteParts(contentParts)
+        val serializedContent = MultimediaUtils.serializeNoteParts(contentParts)
         Log.d(TAG, "Serialized content with ${contentParts.size} parts")
 
         // Create or update note in database

@@ -5,7 +5,7 @@ import android.net.Uri
 import com.example.sqllite_notes.db.NoteDbHelper
 import com.example.sqllite_notes.models.Note
 import com.example.sqllite_notes.models.NotePart
-import com.example.sqllite_notes.utils.ImageUtils
+import com.example.sqllite_notes.utils.MultimediaUtils
 
 class NoteRepository(context: Context) {
     private val dbHelper = NoteDbHelper(context)
@@ -20,7 +20,7 @@ class NoteRepository(context: Context) {
     }
 
     fun saveNote(note: Note, contentParts: List<NotePart>): Boolean {
-        val serializedContent = ImageUtils.serializeNoteParts(contentParts)
+        val serializedContent = MultimediaUtils.serializeNoteParts(contentParts)
         val noteToSave = note.copy(content = serializedContent)
 
         return if (note.id > 0) {
@@ -37,10 +37,10 @@ class NoteRepository(context: Context) {
     }
 
     fun convertImageToBase64(uri: Uri): String? {
-        return ImageUtils.uriToBase64(contentResolver, uri)
+        return MultimediaUtils.uriToBase64(contentResolver, uri)
     }
 
     fun parseNoteContent(content: String): List<NotePart> {
-        return ImageUtils.deserializeNoteParts(content)
+        return MultimediaUtils.deserializeNoteParts(content)
     }
 }

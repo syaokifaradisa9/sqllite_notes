@@ -13,11 +13,7 @@ import com.example.sqllite_notes.models.NotePart
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 
-/**
- * Utility class for media operations
- * Handles conversion between media formats for database storage
- */
-object ImageUtils {
+object MultimediaUtils {
     private const val TAG = "MediaUtils"
     private const val IMAGE_PREFIX = "IMG:"
     private const val TEXT_PREFIX = "TXT:"
@@ -26,15 +22,8 @@ object ImageUtils {
     private const val MAX_IMAGE_DIMENSION = 1024
     private const val JPEG_QUALITY = 80
 
-    /**
-     * Convert URI to Base64 encoded string
-     * @param contentResolver ContentResolver to use for accessing the image
-     * @param imageUri URI of the image to convert
-     * @return Base64 encoded string of the image, or null if conversion failed
-     */
     fun uriToBase64(contentResolver: ContentResolver, imageUri: Uri): String? {
         return try {
-            Log.d(TAG, "Converting image URI to Base64: $imageUri")
             val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val source = ImageDecoder.createSource(contentResolver, imageUri)
                 ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
@@ -51,10 +40,8 @@ object ImageUtils {
                 return null
             }
 
-            // Resize the bitmap to save space
             val resizedBitmap = resizeBitmap(bitmap)
 
-            // Convert bitmap to byte array
             val byteArrayOutputStream = ByteArrayOutputStream()
             resizedBitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, byteArrayOutputStream)
             val byteArray = byteArrayOutputStream.toByteArray()
@@ -64,7 +51,6 @@ object ImageUtils {
                 return null
             }
 
-            // Convert byte array to Base64 string
             val encoded = Base64.encodeToString(byteArray, Base64.DEFAULT)
             val result = IMAGE_PREFIX + encoded
 
@@ -83,11 +69,6 @@ object ImageUtils {
         }
     }
 
-    /**
-     * Resize bitmap to reduce memory usage
-     * @param bitmap Bitmap to resize
-     * @return Resized bitmap
-     */
     private fun resizeBitmap(bitmap: Bitmap): Bitmap {
         val width = bitmap.width
         val height = bitmap.height
@@ -116,11 +97,6 @@ object ImageUtils {
         }
     }
 
-    /**
-     * Convert Base64 encoded string to bitmap
-     * @param base64String Base64 encoded string to convert
-     * @return Bitmap, or null if conversion failed
-     */
     fun base64ToBitmap(base64String: String): Bitmap? {
         if (!isImage(base64String)) {
             Log.e(TAG, "String is not a valid image format")
@@ -130,7 +106,6 @@ object ImageUtils {
         return try {
             val cleanBase64 = base64String.removePrefix(IMAGE_PREFIX)
 
-            // Decode the Base64 string to a byte array
             val imageBytes = Base64.decode(cleanBase64, Base64.DEFAULT)
 
             if (imageBytes.isEmpty()) {
@@ -138,12 +113,10 @@ object ImageUtils {
                 return null
             }
 
-            // Set up decoding options to avoid OutOfMemoryError
             val options = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true
             }
 
-            // First pass to get image dimensions without loading into memory
             BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)
 
             if (options.outWidth <= 0 || options.outHeight <= 0) {
@@ -151,11 +124,9 @@ object ImageUtils {
                 return null
             }
 
-            // Calculate appropriate sampling rate
             options.inSampleSize = calculateInSampleSize(options, MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION)
             options.inJustDecodeBounds = false
 
-            // Actually decode the bitmap with the calculated sample size
             val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)
 
             if (bitmap == null) {
@@ -178,11 +149,7 @@ object ImageUtils {
         }
     }
 
-    /**
-     * Calculate an appropriate inSampleSize value for bitmap decoding
-     */
     private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        // Raw height and width of image
         val height = options.outHeight
         val width = options.outWidth
         var inSampleSize = 1
@@ -191,8 +158,6 @@ object ImageUtils {
             val halfHeight = height / 2
             val halfWidth = width / 2
 
-            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-            // height and width larger than the requested height and width
             while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
                 inSampleSize *= 2
             }
@@ -202,38 +167,18 @@ object ImageUtils {
         return inSampleSize
     }
 
-    /**
-     * Check if a string is an encoded image
-     * @param content String to check
-     * @return True if the string is an encoded image, false otherwise
-     */
     fun isImage(content: String): Boolean {
         return content.startsWith(IMAGE_PREFIX)
     }
 
-    /**
-     * Check if a string is an encoded audio
-     * @param content String to check
-     * @return True if the string is an encoded audio, false otherwise
-     */
     fun isAudio(content: String): Boolean {
         return content.startsWith(AUDIO_PREFIX)
     }
 
-    /**
-     * Check if a string is text
-     * @param content String to check
-     * @return True if the string is text, false otherwise
-     */
     fun isText(content: String): Boolean {
         return content.startsWith(TEXT_PREFIX) || (!isImage(content) && !isAudio(content))
     }
 
-    /**
-     * Wrap text content with a prefix for consistent handling
-     * @param text Text to wrap
-     * @return Wrapped text
-     */
     fun wrapText(text: String): String {
         return if (text.startsWith(TEXT_PREFIX)) {
             text
@@ -242,30 +187,14 @@ object ImageUtils {
         }
     }
 
-    /**
-     * Unwrap text content
-     * @param content Wrapped text
-     * @return Unwrapped text
-     */
     fun unwrapText(content: String): String {
         return content.removePrefix(TEXT_PREFIX)
     }
 
-    /**
-     * Wrap audio content with a prefix and title for consistent handling
-     * @param path Audio file path
-     * @param title Audio title
-     * @return Wrapped audio content
-     */
     fun wrapAudio(path: String, title: String): String {
         return "$AUDIO_PREFIX$path$AUDIO_TITLE_SEPARATOR$title"
     }
 
-    /**
-     * Unwrap audio content and extract path and title
-     * @param content Wrapped audio content
-     * @return Pair of audio path and title
-     */
     fun unwrapAudio(content: String): Pair<String, String> {
         if (!isAudio(content)) {
             return Pair("", "Audio Recording")
@@ -281,15 +210,9 @@ object ImageUtils {
         }
     }
 
-    /**
-     * Serialize a list of note parts to a single string for database storage
-     * @param parts List of NotePart objects
-     * @return Serialized string
-     */
     fun serializeNoteParts(parts: List<NotePart>): String {
         val stringBuilder = StringBuilder()
 
-        // Filter out any empty text parts
         val filteredParts = parts.filter {
             !(it is NotePart.TextPart && it.text.trim().isEmpty())
         }
@@ -338,11 +261,6 @@ object ImageUtils {
         return stringBuilder.toString()
     }
 
-    /**
-     * Deserialize a string from the database to a list of note parts
-     * @param serialized Serialized string
-     * @return List of NotePart objects
-     */
     fun deserializeNoteParts(serialized: String): List<NotePart> {
         val parts = mutableListOf<NotePart>()
 

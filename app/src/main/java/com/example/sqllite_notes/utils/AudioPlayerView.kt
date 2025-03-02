@@ -93,8 +93,8 @@ class AudioPlayerView @JvmOverloads constructor(
     fun setAudioSource(path: String, title: String = "Audio Recording") {
         // For existing audio saved in the database
         // It might be a wrapped audio path
-        if (ImageUtils.isAudio(path)) {
-            val (audioFilePath, audioTitle) = ImageUtils.unwrapAudio(path)
+        if (MultimediaUtils.isAudio(path)) {
+            val (audioFilePath, audioTitle) = MultimediaUtils.unwrapAudio(path)
             audioPath = audioFilePath
             txtTitle.text = audioTitle
         } else {
