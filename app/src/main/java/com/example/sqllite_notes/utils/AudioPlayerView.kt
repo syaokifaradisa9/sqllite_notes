@@ -9,11 +9,11 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import com.example.sqllite_notes.R
+import com.google.android.material.button.MaterialButton // Import MaterialButton
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -25,8 +25,9 @@ class AudioPlayerView @JvmOverloads constructor(
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
     private var mediaPlayer: MediaPlayer? = null
-    private lateinit var btnPlay: ImageButton
-    private lateinit var btnPause: ImageButton
+    // Ubah tipe dari ImageButton menjadi MaterialButton
+    private lateinit var btnPlay: MaterialButton
+    private lateinit var btnPause: MaterialButton
     private lateinit var seekBar: SeekBar
     private lateinit var txtDuration: TextView
     private lateinit var txtTitle: TextView
