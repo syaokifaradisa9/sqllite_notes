@@ -4,7 +4,7 @@ import android.provider.BaseColumns
 
 object NoteContract {
     object NoteEntry : BaseColumns {
-        const val TABLE_NAME = "notes"
+        const val TABLE_NAME = "notes_sqllite"
         const val COLUMN_ID = BaseColumns._ID
         const val COLUMN_TITLE = "title"
         const val COLUMN_CONTENT = "content"

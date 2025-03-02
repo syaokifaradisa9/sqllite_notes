@@ -174,15 +174,19 @@ class AddNoteActivity : AppCompatActivity() {
                             val bitmap = MultimediaUtils.base64ToBitmap(base64String)
 
                             if (bitmap != null) {
+                                // Calculate the aspect ratio of the bitmap
+                                val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+
                                 val imageView = ImageView(this).apply {
                                     id = View.generateViewId()
                                     layoutParams = LinearLayout.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
-                                        600
+                                        ViewGroup.LayoutParams.WRAP_CONTENT
                                     ).apply {
-                                        setMargins(16, 0, 16, 0)
+                                        setMargins(16, 8, 16, 8)
                                     }
-                                    scaleType = ImageView.ScaleType.CENTER_CROP
+                                    adjustViewBounds = true  // This preserves aspect ratio
+                                    scaleType = ImageView.ScaleType.FIT_CENTER
                                     setImageBitmap(bitmap)
                                     contentDescription = "Note Image"
                                 }

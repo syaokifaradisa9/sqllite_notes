@@ -2,6 +2,7 @@ package com.example.sqllite_notes.helpers
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
 import android.widget.ImageView
@@ -31,15 +32,36 @@ class ImageSelectorHelper(
     }
 
     fun createImageView(imageUri: Uri): ImageView {
+        // Get the image dimensions to calculate aspect ratio
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+
+        try {
+            activity.contentResolver.openInputStream(imageUri)?.use { inputStream ->
+                BitmapFactory.decodeStream(inputStream, null, options)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // Calculate the aspect ratio - default to 4:3 if we can't determine
+        val aspectRatio = if (options.outWidth > 0 && options.outHeight > 0) {
+            options.outWidth.toFloat() / options.outHeight.toFloat()
+        } else {
+            4f / 3f  // Default aspect ratio if unable to determine
+        }
+
         return ImageView(activity).apply {
             id = ViewGroup.generateViewId()
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                600
+                ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(16, 0, 16, 0)
+                setMargins(16, 8, 16, 8)
             }
-            scaleType = ImageView.ScaleType.CENTER_CROP
+            adjustViewBounds = true  // This is key for maintaining aspect ratio
+            scaleType = ImageView.ScaleType.FIT_CENTER
             setImageURI(imageUri)
             contentDescription = "Note Image"
         }
