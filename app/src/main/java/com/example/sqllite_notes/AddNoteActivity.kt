@@ -473,6 +473,7 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
+    // Load Error
     private fun addImageLoadErrorMessage() {
         val errorText = EditText(this).apply {
             id = View.generateViewId()
@@ -505,6 +506,36 @@ class AddNoteActivity : AppCompatActivity() {
 
         binding.contentContainer.addView(errorText)
         noteContentItems.add(NoteContentItem.Text(errorText))
+    }
+
+    // Delete text for delete media
+    private fun addBackspaceListenerToEditText(editText: EditText) {
+        editText.setOnKeyListener { view, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DEL
+                && event.action == KeyEvent.ACTION_DOWN
+                && editText.text.isEmpty()) {
+
+                val currentIndex = noteContentItems.indexOfFirst {
+                    (it is NoteContentItem.Text && it.editText == editText)
+                }
+
+                if (currentIndex > 0) {
+                    when (val prevItem = noteContentItems[currentIndex - 1]) {
+                        is NoteContentItem.Image -> {
+                            deleteImageAndEmptyTextField(currentIndex - 1, currentIndex, view)
+                            return@setOnKeyListener true
+                        }
+                        is NoteContentItem.Audio -> {
+                            // Similar logic for deleting audio
+                            deleteAudioAndEmptyTextField(currentIndex - 1, currentIndex, view)
+                            return@setOnKeyListener true
+                        }
+                        else -> {} // Do nothing for other types
+                    }
+                }
+            }
+            false
+        }
     }
 
     private fun deleteImageAndEmptyTextField(imageIndex: Int, textFieldIndex: Int, sourceView: View) {
@@ -565,6 +596,7 @@ class AddNoteActivity : AppCompatActivity() {
         }
     }
 
+    // Render text field
     private fun createEditText(initialText: String): EditText {
         return EditText(this).apply {
             id = View.generateViewId()
@@ -584,35 +616,6 @@ class AddNoteActivity : AppCompatActivity() {
             setText(initialText)
 
             addBackspaceListenerToEditText(this)
-        }
-    }
-
-    private fun addBackspaceListenerToEditText(editText: EditText) {
-        editText.setOnKeyListener { view, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_DEL
-                && event.action == KeyEvent.ACTION_DOWN
-                && editText.text.isEmpty()) {
-
-                val currentIndex = noteContentItems.indexOfFirst {
-                    (it is NoteContentItem.Text && it.editText == editText)
-                }
-
-                if (currentIndex > 0) {
-                    when (val prevItem = noteContentItems[currentIndex - 1]) {
-                        is NoteContentItem.Image -> {
-                            deleteImageAndEmptyTextField(currentIndex - 1, currentIndex, view)
-                            return@setOnKeyListener true
-                        }
-                        is NoteContentItem.Audio -> {
-                            // Similar logic for deleting audio
-                            deleteAudioAndEmptyTextField(currentIndex - 1, currentIndex, view)
-                            return@setOnKeyListener true
-                        }
-                        else -> {} // Do nothing for other types
-                    }
-                }
-            }
-            false
         }
     }
 }
