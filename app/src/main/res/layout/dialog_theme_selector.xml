@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="Choose Theme"
+        android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+    <RadioGroup
+        android:id="@+id/rgThemeOptions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/rbSystemDefault"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="8dp"
+            android:text="System Default"
+            android:textAppearance="@style/TextAppearance.Material3.BodyLarge" />
+
+        <RadioButton
+            android:id="@+id/rbLightTheme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="8dp"
+            android:text="Light"
+            android:textAppearance="@style/TextAppearance.Material3.BodyLarge" />
+
+        <RadioButton
+            android:id="@+id/rbDarkTheme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="8dp"
+            android:text="Dark"
+            android:textAppearance="@style/TextAppearance.Material3.BodyLarge" />
+    </RadioGroup>
+</LinearLayout>
