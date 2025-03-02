@@ -70,10 +70,10 @@ class MainActivity : AppCompatActivity(), NoteAdapter.OnNoteClickListener {
     // Setup pemeriksaan apakah ada data
     private fun updateEmptyView() {
         if (notes.isEmpty()) {
-            binding.emptyView.visibility = View.VISIBLE
+            binding.emptyStateContainer.visibility = View.VISIBLE
             binding.recyclerView.visibility = View.GONE
         } else {
-            binding.emptyView.visibility = View.GONE
+            binding.emptyStateContainer.visibility = View.GONE
             binding.recyclerView.visibility = View.VISIBLE
         }
     }
