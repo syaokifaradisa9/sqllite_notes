@@ -96,17 +96,21 @@ class AddNoteActivity : AppCompatActivity() {
 
         dbHelper = NoteDbHelper(this)
 
+        // Konfigurasi toolbar
         setupToolbar()
         setupPermissionManager()
         setupListeners()
 
+        // Mendapatkan ID catatan dari intent (jika sedang mengedit catatan)
         noteId = intent.getLongExtra(MainActivity.EXTRA_NOTE_ID, 0)
-        Log.d(TAG, "Opening note with ID: $noteId")
+        Log.d(TAG, "Membuka catatan dengan ID: $noteId")
 
         binding.contentContainer.apply {
             this.showDividers = LinearLayout.SHOW_DIVIDER_NONE
         }
 
+        // Jika ID > 0, maka sedang mengedit catatan yang ada
+        // Jika ID = 0, maka sedang membuat catatan baru
         if (noteId > 0) {
             loadNote(noteId)
         } else {

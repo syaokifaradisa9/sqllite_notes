@@ -19,6 +19,7 @@ class PermissionManager(
     private val onPermissionDenied: (PermissionType) -> Unit = { _ -> }
 ) {
 
+    // Jenis izin yang diperlukan oleh aplikasi
     enum class PermissionType {
         IMAGE, AUDIO, BOTH
     }
@@ -60,11 +61,12 @@ class PermissionManager(
 
         val permissions = getPermissionsForType(permissionType)
 
+        // Periksa apakah izin sudah diberikan
         if (permissions.all { ContextCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED }) {
-            // Permission already granted
+            // Izin sudah diberikan, lanjutkan dengan operasi yang membutuhkan izin
             onPermissionGranted(permissionType)
         } else {
-            // Request permission
+            // Minta izin kepada pengguna
             requestPermissionLauncher.launch(permissions)
         }
     }

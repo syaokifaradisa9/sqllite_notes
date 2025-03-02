@@ -23,8 +23,6 @@ class MainActivity : AppCompatActivity(), NoteAdapter.OnNoteClickListener {
 
     companion object {
         const val EXTRA_NOTE_ID = "extra_note_id"
-        const val REQUEST_ADD_NOTE = 100
-        const val REQUEST_UPDATE_NOTE = 200
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,12 +33,12 @@ class MainActivity : AppCompatActivity(), NoteAdapter.OnNoteClickListener {
 
         dbHelper = NoteDbHelper(this)
 
-        // Setup
+        // Konfigurasi toolbar dan RecyclerView
         setSupportActionBar(binding.toolbar)
         setupRecyclerView()
         loadNotesFromDb()
 
-        // Add Button Action - Go To Add Note Page
+        // Tombol tambah catatan baru - Akan membuka halaman AddNoteActivity
         binding.btnAddNote.setOnClickListener(View.OnClickListener {
             val intent = Intent(this@MainActivity, AddNoteActivity::class.java)
             startActivity(intent)

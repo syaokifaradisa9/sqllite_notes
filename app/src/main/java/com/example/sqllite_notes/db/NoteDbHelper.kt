@@ -4,7 +4,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import android.provider.ContactsContract
 import com.example.sqllite_notes.models.Note
 
 class NoteDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
@@ -14,6 +13,7 @@ class NoteDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
         const val DATABASE_NAME = "Notes.db"
     }
 
+    // Membuat tabel notes saat database pertama kali dibuat
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(NoteContract.SQL_CREATE_ENTRIES)
     }
@@ -30,12 +30,14 @@ class NoteDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
     fun insertNote(note: Note): Long {
         val db = writableDatabase
 
+        // Menyiapkan nilai yang akan dimasukkan ke database
         val values = ContentValues().apply {
             put(NoteContract.NoteEntry.COLUMN_TITLE, note.title)
             put(NoteContract.NoteEntry.COLUMN_CONTENT, note.content)
             put(NoteContract.NoteEntry.COLUMN_CREATED_AT, System.currentTimeMillis())
         }
 
+        // Mengembalikan ID dari catatan yang baru dibuat
         return db.insert(NoteContract.NoteEntry.TABLE_NAME, null, values)
     }
 

@@ -83,6 +83,7 @@ class AudioPlayerView @JvmOverloads constructor(
     }
 
     fun setAudioSource(uri: Uri?, title: String = "Audio Recording") {
+        // Menyimpan URI audio dan judul
         audioUri = uri
         audioPath = null
         txtTitle.text = title
@@ -110,65 +111,69 @@ class AudioPlayerView @JvmOverloads constructor(
         try {
             mediaPlayer = MediaPlayer()
 
-            // Set the audio source
+            // Mengatur sumber audio
             when {
                 audioUri != null -> {
-                    Log.d(TAG, "Setting URI source: $audioUri")
+                    Log.d(TAG, "Mengatur sumber URI: $audioUri")
                     mediaPlayer?.setDataSource(context, audioUri!!)
                 }
                 audioPath != null -> {
-                    Log.d(TAG, "Setting file path source: $audioPath")
+                    Log.d(TAG, "Mengatur sumber dari path file: $audioPath")
                     if (audioPath!!.startsWith("content://")) {
-                        // Handle content URI stored as string
+                        // Menangani URI konten yang disimpan sebagai string
                         mediaPlayer?.setDataSource(context, Uri.parse(audioPath))
                     } else {
-                        // Handle file path
+                        // Menangani path file
                         val file = File(audioPath!!)
                         if (file.exists()) {
                             mediaPlayer?.setDataSource(file.absolutePath)
                         } else {
-                            Log.e(TAG, "Audio file does not exist: $audioPath")
+                            Log.e(TAG, "File audio tidak ditemukan: $audioPath")
                             return
                         }
                     }
                 }
                 else -> {
-                    Log.e(TAG, "No audio source specified")
+                    Log.e(TAG, "Tidak ada sumber audio yang ditentukan")
                     return
                 }
             }
 
+            // Menyiapkan MediaPlayer dan listener-nya
             mediaPlayer?.setOnPreparedListener { mp ->
                 isPrepared = true
                 val duration = mp.duration
                 seekBar.max = duration
 
-                // Format duration
+                // Format durasi
                 updateDurationText(0, duration)
 
                 startPlayback()
             }
 
+            // Listener saat pemutaran selesai
             mediaPlayer?.setOnCompletionListener {
                 stopPlayback()
             }
 
+            // Listener saat terjadi error
             mediaPlayer?.setOnErrorListener { _, what, extra ->
-                Log.e(TAG, "MediaPlayer error: what=$what, extra=$extra")
+                Log.e(TAG, "Error MediaPlayer: what=$what, extra=$extra")
                 isPrepared = false
                 btnPlay.visibility = View.VISIBLE
                 btnPause.visibility = View.GONE
                 handler.removeCallbacks(updateSeekBarRunnable)
-                true // Error handled
+                true // Error ditangani
             }
 
+            // Menyiapkan MediaPlayer secara asinkron
             mediaPlayer?.prepareAsync()
         } catch (e: IOException) {
-            Log.e(TAG, "Error preparing MediaPlayer: ${e.message}")
+            Log.e(TAG, "Error menyiapkan MediaPlayer: ${e.message}")
         } catch (e: IllegalStateException) {
-            Log.e(TAG, "MediaPlayer in illegal state: ${e.message}")
+            Log.e(TAG, "MediaPlayer dalam status illegal: ${e.message}")
         } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error: ${e.message}")
+            Log.e(TAG, "Error tidak terduga: ${e.message}")
         }
     }
 

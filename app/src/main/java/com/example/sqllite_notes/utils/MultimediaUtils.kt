@@ -24,6 +24,7 @@ object MultimediaUtils {
 
     fun uriToBase64(contentResolver: ContentResolver, imageUri: Uri): String? {
         return try {
+            // Mendapatkan bitmap dari URI gambar
             val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val source = ImageDecoder.createSource(contentResolver, imageUri)
                 ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
@@ -36,35 +37,37 @@ object MultimediaUtils {
             }
 
             if (bitmap == null) {
-                Log.e(TAG, "Failed to decode bitmap from URI")
+                Log.e(TAG, "Gagal mendekode bitmap dari URI")
                 return null
             }
 
+            // Mengubah ukuran bitmap untuk optimasi penyimpanan
             val resizedBitmap = resizeBitmap(bitmap)
 
+            // Mengkonversi bitmap ke Base64 string
             val byteArrayOutputStream = ByteArrayOutputStream()
             resizedBitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, byteArrayOutputStream)
             val byteArray = byteArrayOutputStream.toByteArray()
 
             if (byteArray.isEmpty()) {
-                Log.e(TAG, "Compressed image produced empty byte array")
+                Log.e(TAG, "Gambar terkompresi menghasilkan array byte kosong")
                 return null
             }
 
             val encoded = Base64.encodeToString(byteArray, Base64.DEFAULT)
             val result = IMAGE_PREFIX + encoded
 
-            Log.d(TAG, "Successfully converted image to Base64 (length: ${result.length})")
+            Log.d(TAG, "Berhasil mengkonversi gambar ke Base64 (panjang: ${result.length})")
             return result
 
         } catch (e: IOException) {
-            Log.e(TAG, "Error converting URI to Base64: ${e.message}")
+            Log.e(TAG, "Error mengkonversi URI ke Base64: ${e.message}")
             null
         } catch (e: OutOfMemoryError) {
-            Log.e(TAG, "Out of memory while processing image: ${e.message}")
+            Log.e(TAG, "Kehabisan memori saat memproses gambar: ${e.message}")
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error during image conversion: ${e.message}")
+            Log.e(TAG, "Error tidak terduga selama konversi gambar: ${e.message}")
             null
         }
     }
