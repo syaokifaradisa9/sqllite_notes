@@ -21,8 +21,7 @@ import java.util.concurrent.TimeUnit
 /**
  * AudioPlayerView adalah custom view yang menangani pemutaran audio dalam aplikasi Notes.
  *
- * Class
- ini mewarisi LinearLayout dan menyediakan antarmuka pemutaran audio lengkap dengan:
+ * Class ini mewarisi LinearLayout dan menyediakan antarmuka pemutaran audio lengkap dengan:
  * - Tombol play/pause untuk mengontrol pemutaran
  * - SeekBar untuk navigasi posisi audio
  * - Indikator durasi yang menampilkan waktu saat ini dan total durasi
@@ -55,7 +54,8 @@ class AudioPlayerView @JvmOverloads constructor(
 
     // Variabel untuk menyimpan sumber audio
     private var audioUri: Uri? = null                // URI audio untuk file yang baru dipilih
-    private var audioPath: String? = null           // Path file untuk audio yang sudah disimpan
+    private var audioPath: String? = null            // Path file untuk audio yang sudah disimpan
+    private var audioBase64: String? = null          // Data Base64 untuk audio
 
     // Status MediaPlayer
     private var isPrepared = false                  // Apakah MediaPlayer sudah siap
@@ -142,6 +142,7 @@ class AudioPlayerView @JvmOverloads constructor(
         // Simpan URI audio dan judul
         audioUri = uri
         audioPath = null
+        audioBase64 = null
         txtTitle.text = title
 
         // Lepaskan MediaPlayer yang lama jika ada
@@ -161,17 +162,52 @@ class AudioPlayerView @JvmOverloads constructor(
         // Periksa apakah path adalah audio yang dibungkus (wrapped)
         if (MultimediaUtils.isAudio(path)) {
             // Jika ya, ekstrak path file dan judul asli
-            val (audioFilePath, audioTitle) = MultimediaUtils.unwrapAudio(path)
-            audioPath = audioFilePath
-            txtTitle.text = audioTitle
+            if (MultimediaUtils.isAudioBase64(path)) {
+                // Jika audio dalam format base64
+                val (base64Data, audioTitle) = MultimediaUtils.extractAudioBase64(path) ?: Pair("", title)
+                audioBase64 = base64Data
+                txtTitle.text = audioTitle
+                audioPath = null
+                audioUri = null
+            } else {
+                // Jika audio dalam format path file biasa
+                val (audioFilePath, audioTitle) = MultimediaUtils.unwrapAudio(path)
+                audioPath = audioFilePath
+                txtTitle.text = audioTitle
+                audioBase64 = null
+                audioUri = null
+            }
         } else {
             // Jika tidak, gunakan path dan judul yang diberikan
             audioPath = path
             txtTitle.text = title
+            audioBase64 = null
+            audioUri = null
         }
 
-        // Reset URI audio karena menggunakan path file
+        // Lepaskan MediaPlayer yang lama jika ada
+        releaseMediaPlayer()
+
+        // Reset status siap
+        isPrepared = false
+    }
+
+    /**
+     * Mengatur sumber audio dari data Base64.
+     *
+     * @param base64Audio String Base64 yang berisi data audio
+     * @param title Judul/nama yang akan ditampilkan untuk audio
+     */
+    fun setAudioFromBase64(base64Audio: String, title: String = "Audio Recording") {
+        // Simpan judul
+        txtTitle.text = title
+
+        // Reset URI dan path karena menggunakan Base64
         audioUri = null
+        audioPath = null
+
+        // Simpan data Base64
+        audioBase64 = base64Audio
 
         // Lepaskan MediaPlayer yang lama jika ada
         releaseMediaPlayer()
@@ -194,12 +230,12 @@ class AudioPlayerView @JvmOverloads constructor(
             when {
                 audioUri != null -> {
                     // Gunakan URI jika tersedia
-                    Log.d(TAG, "Mengatur sumber URI: $audioUri")
+                    Log.d(TAG, "Setting source from URI: $audioUri")
                     mediaPlayer?.setDataSource(context, audioUri!!)
                 }
                 audioPath != null -> {
                     // Gunakan path file jika tersedia
-                    Log.d(TAG, "Mengatur sumber dari path file: $audioPath")
+                    Log.d(TAG, "Setting source from file path: $audioPath")
                     if (audioPath!!.startsWith("content://")) {
                         // Jika path adalah URI konten, parse dan gunakan sebagai URI
                         mediaPlayer?.setDataSource(context, Uri.parse(audioPath))
@@ -209,14 +245,26 @@ class AudioPlayerView @JvmOverloads constructor(
                         if (file.exists()) {
                             mediaPlayer?.setDataSource(file.absolutePath)
                         } else {
-                            Log.e(TAG, "File audio tidak ditemukan: $audioPath")
+                            Log.e(TAG, "Audio file not found: $audioPath")
                             return
                         }
                     }
                 }
+                audioBase64 != null -> {
+                    // Gunakan data Base64 jika tersedia
+                    Log.d(TAG, "Setting source from Base64 data")
+                    // Konversi Base64 ke file sementara
+                    val tempUri = MultimediaUtils.base64AudioToTempFile(context, audioBase64!!)
+                    if (tempUri != null) {
+                        mediaPlayer?.setDataSource(context, tempUri)
+                    } else {
+                        Log.e(TAG, "Failed to create temp file from Base64 audio")
+                        return
+                    }
+                }
                 else -> {
                     // Tidak ada sumber yang valid
-                    Log.e(TAG, "Tidak ada sumber audio yang ditentukan")
+                    Log.e(TAG, "No audio source specified")
                     return
                 }
             }

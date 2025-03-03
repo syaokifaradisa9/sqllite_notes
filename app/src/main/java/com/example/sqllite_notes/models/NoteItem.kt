@@ -91,7 +91,7 @@ sealed class NotePart {
      * @param imagePath String yang berisi data gambar terenkode Base64
      *                  atau path ke file gambar
      */
-    data class ImagePart(val imagePath: String) : NotePart()
+    data class ImagePart(val content: String) : NotePart()
 
     /**
      * Merepresentasikan bagian audio dari catatan.

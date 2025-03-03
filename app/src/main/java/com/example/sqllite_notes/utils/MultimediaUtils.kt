@@ -1,6 +1,7 @@
 package com.example.sqllite_notes.utils
 
 import android.content.ContentResolver
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -11,6 +12,8 @@ import android.util.Base64
 import android.util.Log
 import com.example.sqllite_notes.models.NotePart
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 
 /**
@@ -107,6 +110,119 @@ object MultimediaUtils {
         } catch (e: Exception) {
             Log.e(TAG, "Error tidak terduga selama konversi gambar: ${e.message}")
             null
+        }
+    }
+
+    /**
+     * Mengkonversi URI audio menjadi string Base64.
+     *
+     * @param contentResolver ContentResolver untuk mengakses URI
+     * @param audioUri URI audio yang akan dikonversi
+     * @return String Base64 dengan prefiks atau null jika gagal
+     */
+    fun audioUriToBase64(contentResolver: ContentResolver, audioUri: Uri): String? {
+        return try {
+            // Buka input stream dari URI audio
+            contentResolver.openInputStream(audioUri)?.use { inputStream ->
+                // Baca seluruh file audio ke array byte
+                val bytes = inputStream.readBytes()
+
+                // Jika tidak ada data, kembalikan null
+                if (bytes.isEmpty()) {
+                    Log.e(TAG, "No audio data read from URI")
+                    return null
+                }
+
+                // Konversi array byte ke string Base64
+                val encoded = Base64.encodeToString(bytes, Base64.DEFAULT)
+
+                // Tambahkan prefiks audio dan judul default
+                // Kita menggunakan format yang sama dengan wrapAudio tetapi langsung menyertakan data
+                val result = AUDIO_PREFIX + "BASE64:" + encoded + AUDIO_TITLE_SEPARATOR + "Audio Recording"
+
+                Log.d(TAG, "Successfully converted audio to Base64 (length: ${result.length})")
+                return result
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, "Error converting audio URI to Base64: ${e.message}")
+            null
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "Out of memory error when processing audio: ${e.message}")
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during audio conversion: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Memeriksa apakah sebuah string audio berisi data Base64.
+     *
+     * @param content String audio yang akan diperiksa
+     * @return true jika konten berisi data Base64
+     */
+    fun isAudioBase64(content: String): Boolean {
+        return content.startsWith(AUDIO_PREFIX) && content.contains("BASE64:")
+    }
+
+    /**
+     * Mengekstrak data Base64 dan judul dari string audio.
+     *
+     * @param content String audio yang berisi data Base64
+     * @return Pair(base64Data, title) atau null jika format tidak valid
+     */
+    fun extractAudioBase64(content: String): Pair<String, String>? {
+        if (!isAudioBase64(content)) {
+            return null
+        }
+
+        try {
+            // Hapus prefix audio
+            val withoutPrefix = content.removePrefix(AUDIO_PREFIX)
+
+            // Hapus "BASE64:" marker
+            val base64Content = withoutPrefix.removePrefix("BASE64:")
+
+            // Split berdasarkan pembatas judul
+            val parts = base64Content.split(AUDIO_TITLE_SEPARATOR, limit = 2)
+
+            // Ekstrak data dan judul
+            val base64Data = parts[0]
+            val title = if (parts.size > 1) parts[1] else "Audio Recording"
+
+            return Pair(base64Data, title)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting audio Base64 data: ${e.message}")
+            return null
+        }
+    }
+
+    /**
+     * Menulis data Base64 audio ke file sementara untuk pemutaran.
+     *
+     * @param context Context aplikasi
+     * @param base64Audio Data Base64 audio
+     * @return Uri ke file sementara atau null jika gagal
+     */
+    fun base64AudioToTempFile(context: Context, base64Audio: String): Uri? {
+        try {
+            // Decode Base64 menjadi array byte
+            val audioBytes = Base64.decode(base64Audio, Base64.DEFAULT)
+
+            // Buat file sementara
+            val tempFile = File(context.cacheDir, "temp_audio_${System.currentTimeMillis()}.mp3")
+
+            // Tulis data ke file
+            FileOutputStream(tempFile).use { output ->
+                output.write(audioBytes)
+                output.flush()
+            }
+
+            // Kembalikan URI ke file sementara
+            return Uri.fromFile(tempFile)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error converting Base64 to audio file: ${e.message}")
+            return null
         }
     }
 
@@ -392,10 +508,10 @@ object MultimediaUtils {
                 }
                 is NotePart.ImagePart -> {
                     // Pastikan path gambar dimulai dengan prefiks yang benar
-                    val imagePath = if (part.imagePath.startsWith(IMAGE_PREFIX)) {
-                        part.imagePath
+                    val imagePath = if (part.content.startsWith(IMAGE_PREFIX)) {
+                        part.content
                     } else {
-                        IMAGE_PREFIX + part.imagePath
+                        IMAGE_PREFIX + part.content
                     }
                     stringBuilder.append(imagePath)
                     Log.d(TAG, "Serialized image part: ${imagePath.take(30)}...")

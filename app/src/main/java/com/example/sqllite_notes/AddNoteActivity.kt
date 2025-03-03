@@ -226,7 +226,7 @@ class AddNoteActivity : AppCompatActivity() {
                     }
                     is NotePart.ImagePart -> {
                         // Tambahkan konten gambar ke UI
-                        val base64String = part.imagePath
+                        val base64String = part.content
                         Log.d(TAG, "Loading image: ${base64String.take(50)}...")
 
                         if (MultimediaUtils.isImage(base64String)) {
@@ -279,8 +279,8 @@ class AddNoteActivity : AppCompatActivity() {
                     }
                     is NotePart.AudioPart -> {
                         // Tambahkan konten audio ke UI
-                        val audioPath = part.audioPath
-                        Log.d(TAG, "Loading audio: ${audioPath.take(50)}...")
+                        val audioContent = part.audioPath
+                        Log.d(TAG, "Loading audio: ${audioContent.take(50)}...")
 
                         try {
                             // Buat AudioPlayerView untuk memutar audio
@@ -290,7 +290,7 @@ class AddNoteActivity : AppCompatActivity() {
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.WRAP_CONTENT
                                 )
-                                setAudioSource(audioPath, part.title)
+                                setAudioSource(audioContent, part.title)
                             }
 
                             binding.contentContainer.addView(audioPlayerView)
@@ -299,7 +299,7 @@ class AddNoteActivity : AppCompatActivity() {
                             noteContentItems.add(NoteContentItem.Audio(
                                 audioView = audioPlayerView,
                                 uri = Uri.EMPTY,
-                                audioPath = audioPath,
+                                audioPath = audioContent,
                                 title = part.title
                             ))
 
@@ -409,18 +409,17 @@ class AddNoteActivity : AppCompatActivity() {
                 is NoteContentItem.Audio -> {
                     try {
                         if (item.uri != Uri.EMPTY) {
-                            // Audio baru - salin ke penyimpanan aplikasi
+                            // Audio baru - konversi dari URI ke Base64
                             Log.d(TAG, "Processing new audio from URI")
-                            val audioFile = audioSelectorHelper.copyAudioToInternalStorage(item.uri)
-                            if (audioFile.isNotEmpty()) {
-                                val audioPath = MultimediaUtils.wrapAudio(audioFile, item.title)
-                                contentParts.add(NotePart.AudioPart(audioPath, item.title))
+                            val base64Audio = MultimediaUtils.audioUriToBase64(contentResolver, item.uri)
+                            if (base64Audio != null) {
+                                contentParts.add(NotePart.AudioPart(base64Audio, item.title))
                             } else {
-                                Log.e(TAG, "Failed to copy audio file")
+                                Log.e(TAG, "Failed to convert audio to Base64")
                                 conversionError = true
                             }
                         } else if (item.audioPath.isNotEmpty()) {
-                            // Audio yang sudah ada - gunakan path yang tersimpan
+                            // Audio yang sudah ada - gunakan data yang tersimpan
                             Log.d(TAG, "Using existing audio data")
                             contentParts.add(NotePart.AudioPart(item.audioPath, item.title))
                         } else {
@@ -444,6 +443,7 @@ class AddNoteActivity : AppCompatActivity() {
         // Serialisasi bagian konten
         val serializedContent = MultimediaUtils.serializeNoteParts(contentParts)
         Log.d(TAG, "Serialized content with ${contentParts.size} parts")
+        Log.d(TAG, "Serialized content : ${contentParts}")
 
         // Buat atau perbarui catatan di database
         val note = Note(
