@@ -4,6 +4,7 @@ import android.text.format.DateFormat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.sqllite_notes.R
@@ -37,6 +38,12 @@ class NoteAdapter(
          * @param note Objek catatan yang diklik
          */
         fun onNoteClick(note: Note)
+
+        /**
+         * Dipanggil ketika pengguna memilih untuk menduplikasi catatan.
+         * @param note Objek catatan yang akan diduplikasi
+         */
+        fun onNoteDuplicate(note: Note)
     }
 
     /**
@@ -87,6 +94,29 @@ class NoteAdapter(
         // Atur listener klik pada kartu catatan
         holder.noteCard.setOnClickListener {
             listener.onNoteClick(note)
+        }
+
+        // Tambahkan listener long-press untuk menampilkan menu konteks
+        holder.noteCard.setOnLongClickListener { view ->
+            // Tampilkan popup menu dengan opsi duplikasi
+            val popupMenu = PopupMenu(view.context, view)
+            popupMenu.inflate(R.menu.menu_note_item_actions)
+
+            // Atur listener untuk pemilihan item menu
+            popupMenu.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.action_duplicate -> {
+                        // Panggil callback duplikasi
+                        listener.onNoteDuplicate(note)
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            // Tampilkan menu
+            popupMenu.show()
+            true // Consume the long click event
         }
     }
 

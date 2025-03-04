@@ -225,6 +225,50 @@ class MainActivity : AppCompatActivity(), NoteAdapter.OnNoteClickListener {
     }
 
     /**
+     * Implementasi dari interface OnNoteClickListener.
+     * Dipanggil saat pengguna memilih untuk menduplikasi catatan.
+     */
+    override fun onNoteDuplicate(note: Note) {
+        // Duplikasi catatan
+        duplicateNote(note)
+    }
+
+    /**
+     * Menduplikasi catatan yang dipilih.
+     *
+     * @param note Catatan yang akan diduplikasi
+     */
+    private fun duplicateNote(note: Note) {
+        // Buat salinan catatan dengan judul yang menunjukkan ini adalah salinan
+        val duplicatedNote = Note(
+            id = 0, // ID 0 menandakan ini adalah catatan baru
+            title = "${note.title}",
+            content = note.content,
+            createdAt = System.currentTimeMillis() // Timestamp saat ini sebagai waktu pembuatan
+        )
+
+        // Simpan catatan yang diduplikasi ke database
+        val newId = dbHelper.insertNote(duplicatedNote)
+
+        if (newId > 0) {
+            // Jika berhasil menyimpan, tambahkan catatan ke daftar dan perbarui UI
+            val newNote = duplicatedNote.copy(id = newId)
+            notes.add(0, newNote) // Tambahkan di awal daftar
+            adapter.updateNotes(notes)
+            updateEmptyView()
+
+            // Scroll ke atas untuk menampilkan catatan baru
+            binding.recyclerView.smoothScrollToPosition(0)
+
+            // Beri tahu pengguna bahwa catatan berhasil diduplikasi
+            Toast.makeText(this, "Note duplicated", Toast.LENGTH_SHORT).show()
+        } else {
+            // Jika gagal menyimpan, tampilkan pesan error
+            Toast.makeText(this, "Failed to duplicate note", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
      * Mengatur fitur swipe-to-delete untuk RecyclerView.
      * Memungkinkan pengguna menghapus catatan dengan menggeser ke kiri.
      */
